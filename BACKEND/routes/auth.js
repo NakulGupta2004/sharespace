@@ -11,10 +11,12 @@ const router = express.Router();
 // @access  Public
 router.post('/register', async (req, res) => {
   try {
+    console.log('🔵 Registration attempt:', req.body);
     const { name, email, password, college_id, phone } = req.body;
 
     // Validation
     if (!name || !email || !password || !college_id) {
+      console.log('❌ Missing required fields:', { name: !!name, email: !!email, password: !!password, college_id: !!college_id });
       return res.status(400).json({
         success: false,
         message: 'Please provide all required fields'
@@ -117,9 +119,11 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log('Login attempt:', { email, passwordLength: password?.length });
 
     // Validation
     if (!email || !password) {
+      console.log('Missing email or password');
       return res.status(400).json({
         success: false,
         message: 'Please provide email and password'
@@ -131,6 +135,7 @@ router.post('/login', async (req, res) => {
       email: email.toLowerCase() 
     }).select('+password');
 
+    console.log('User found:', user ? 'Yes' : 'No');
     if (!user) {
       return res.status(400).json({
         success: false,
@@ -140,6 +145,7 @@ router.post('/login', async (req, res) => {
 
     // Check password
     const isMatch = await user.comparePassword(password);
+    console.log('Password match:', isMatch);
     if (!isMatch) {
       return res.status(400).json({
         success: false,
@@ -166,6 +172,7 @@ router.post('/login', async (req, res) => {
       { expiresIn: process.env.JWT_EXPIRE }
     );
 
+    console.log('Login successful for user:', user.email);
     res.status(200).json({
       success: true,
       message: 'Login successful',

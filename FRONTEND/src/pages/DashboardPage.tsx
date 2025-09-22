@@ -10,7 +10,10 @@ interface Booking {
   listingId: {
     _id: string;
     title: string;
-    images?: string[];
+    images?: Array<{
+      url: string;
+      alt_text?: string;
+    }>;
     category: string;
     pricing?: {
       basePrice?: number;
@@ -36,7 +39,10 @@ interface Listing {
   description: string;
   category: string;
   condition: string;
-  images?: string[];
+  images?: Array<{
+    url: string;
+    alt_text?: string;
+  }>;
   image_urls?: string[];
   pricing?: {
     type: string;
@@ -411,7 +417,7 @@ const DashboardPage: React.FC = () => {
                       <div className="flex items-start justify-between">
                         <div className="flex items-start space-x-4">
                           <img
-                            src={(booking.listingId.images && booking.listingId.images[0]) || '/api/placeholder/80/80'}
+                            src={(booking.listingId.images && booking.listingId.images[0]?.url) || '/api/placeholder/80/80'}
                             alt={booking.listingId.title}
                             className="w-16 h-16 object-cover rounded-lg"
                           />
@@ -498,7 +504,7 @@ const DashboardPage: React.FC = () => {
                 {listings.map((listing) => (
                   <div key={listing._id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
                     <img
-                      src={(listing.images && listing.images[0]) || (listing.image_urls && listing.image_urls[0]) || '/api/placeholder/300/200'}
+                      src={(listing.images && listing.images[0]?.url) || (listing.image_urls && listing.image_urls[0]) || '/api/placeholder/300/200'}
                       alt={listing.title}
                       className="w-full h-48 object-cover"
                     />

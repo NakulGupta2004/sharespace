@@ -128,11 +128,11 @@ export default function ListingDetailPage() {
   }
 
   const calculateTotal = () => {
-    if (!bookingData.startDate || !bookingData.endDate || !listing?.pricing?.basePrice) {
+    if (!bookingData.startDate || !bookingData.endDate || !listing?.pricing?.dailyRate) {
       return 0
     }
     const daysDiff = calculateDaysDiff(bookingData.startDate, bookingData.endDate)
-    const totalAmount = daysDiff * (listing.pricing?.basePrice || 0)
+    const totalAmount = daysDiff * (listing.pricing?.dailyRate || 0)
     return totalAmount
   }
 
@@ -680,7 +680,7 @@ export default function ListingDetailPage() {
                 <div className="bg-gray-700 p-3 rounded-md">
                   <div className="flex justify-between text-gray-300">
                     <span>Days: {calculateDaysDiff(bookingData.startDate, bookingData.endDate)}</span>
-                    <span>Rate: {formatPrice(listing?.pricing?.basePrice || 0)}/day</span>
+                    <span>Rate: {formatPrice(listing?.pricing?.dailyRate || 0)}/day</span>
                   </div>
                   <div className="flex justify-between font-bold text-white mt-2">
                     <span>Total: {formatPrice(calculateTotal())}</span>

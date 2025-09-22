@@ -10,7 +10,9 @@ const router = express.Router();
 router.post('/', authenticate, async (req, res) => {
   try {
     const { listingId, startDate, endDate, notes } = req.body;
-    const userId = req.user.id;
+    const userId = req.user.userId;
+
+    console.log('Booking request:', { listingId, startDate, endDate, userId });
 
     // Validate required fields
     if (!listingId || !startDate || !endDate) {
@@ -77,8 +79,15 @@ router.post('/', authenticate, async (req, res) => {
 
     // Calculate total amount
     const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-    const basePrice = listing.pricing?.basePrice || 0;
-    const totalAmount = days * basePrice;
+    const dailyRate = listing.pricing?.dailyRate || 0;
+    const totalAmount = days * dailyRate;
+
+    console.log('Booking calculation:', { 
+      days, 
+      dailyRate, 
+      totalAmount, 
+      pricing: listing.pricing 
+    });
 
     // Create booking
     const booking = new Booking({
@@ -127,7 +136,7 @@ router.get('/my', authenticate, async (req, res) => {
     }
 
     const bookings = await Booking.find(query)
-      .populate('listingId', 'title images pricing location ownerId')
+      .populate('listingId', 'title images category pricing location ownerId')
       .populate('userId', 'name email')
       .sort({ createdAt: -1 });
 
@@ -165,7 +174,7 @@ router.get('/received', authenticate, async (req, res) => {
     }
 
     const bookings = await Booking.find(query)
-      .populate('listingId', 'title images pricing location')
+      .populate('listingId', 'title images category pricing location')
       .populate('userId', 'name email')
       .sort({ createdAt: -1 });
 
