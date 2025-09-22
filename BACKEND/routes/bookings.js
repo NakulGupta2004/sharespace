@@ -128,7 +128,7 @@ router.post('/', authenticate, async (req, res) => {
 router.get('/my', authenticate, async (req, res) => {
   try {
     const { filter } = req.query;
-    let query = { userId: req.user.id };
+    let query = { userId: req.user.userId };
 
     // Apply filter
     if (filter && filter !== 'all') {
@@ -162,9 +162,13 @@ router.get('/received', authenticate, async (req, res) => {
   try {
     const { filter } = req.query;
     
+    console.log('Received bookings request for user:', req.user.userId);
+    
     // Get user's listings
-    const userListings = await Listing.find({ ownerId: req.user.id }).select('_id');
+    const userListings = await Listing.find({ ownerId: req.user.userId }).select('_id');
     const listingIds = userListings.map(listing => listing._id);
+    
+    console.log('User has listings:', listingIds.length, 'listings');
 
     let query = { listingId: { $in: listingIds } };
 
@@ -177,6 +181,8 @@ router.get('/received', authenticate, async (req, res) => {
       .populate('listingId', 'title images category pricing location')
       .populate('userId', 'name email')
       .sort({ createdAt: -1 });
+
+    console.log('Found bookings for user listings:', bookings.length);
 
     res.json({
       success: true,
@@ -219,15 +225,31 @@ router.put('/:id/status', authenticate, async (req, res) => {
     }
 
     // Check permissions - only booking creator or listing owner can update
-    const isBookingCreator = booking.userId.toString() === req.user.id;
-    const isListingOwner = booking.listingId.ownerId.toString() === req.user.id;
+    const bookingCreatorId = booking.userId.toString();
+    const listingOwnerId = booking.listingId.ownerId.toString();
+    const currentUserId = req.user.userId.toString();
+    
+    const isBookingCreator = bookingCreatorId === currentUserId;
+    const isListingOwner = listingOwnerId === currentUserId;
+
+    console.log('Authorization check:', {
+      bookingCreatorId,
+      listingOwnerId,
+      currentUserId,
+      isBookingCreator,
+      isListingOwner,
+      userObject: req.user
+    });
 
     if (!isBookingCreator && !isListingOwner) {
+      console.log('Authorization failed - user not authorized');
       return res.status(403).json({
         success: false,
         message: 'Not authorized to update this booking'
       });
     }
+
+    console.log('Authorization passed - updating booking status to:', status);
 
     booking.status = status;
     await booking.save();

@@ -174,6 +174,31 @@ const DashboardPage: React.FC = () => {
     }
   };
 
+  const updateBookingStatus = async (bookingId: string, status: 'confirmed' | 'cancelled') => {
+    try {
+      const response = await axios.put(
+        `http://localhost:5000/api/bookings/${bookingId}/status`,
+        { status },
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
+        }
+      );
+
+      if (response.data.success) {
+        // Refresh bookings to show updated status
+        fetchBookings();
+        
+        // Show success message
+        alert(`Booking ${status} successfully!`);
+      } else {
+        alert(response.data.message || 'Failed to update booking status');
+      }
+    } catch (err: any) {
+      console.error('Error updating booking status:', err);
+      alert(err.response?.data?.message || 'Failed to update booking status');
+    }
+  };
+
   const calculateStats = (bookingsData: Booking[]) => {
     if (!Array.isArray(bookingsData)) {
       setStats({
@@ -451,6 +476,26 @@ const DashboardPage: React.FC = () => {
                           <div className="text-xs text-gray-500 mt-1">
                             Booked {formatDate(booking.createdAt)}
                           </div>
+                          
+                          {/* Accept/Reject buttons for pending bookings on received tab */}
+                          {bookingFilter === 'listed' && booking.status === 'pending' && (
+                            <div className="flex gap-2 mt-2">
+                              <Button
+                                onClick={() => updateBookingStatus(booking._id, 'confirmed')}
+                                variant="default"
+                                className="text-xs px-3 py-1 bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                Accept
+                              </Button>
+                              <Button
+                                onClick={() => updateBookingStatus(booking._id, 'cancelled')}
+                                variant="outline"
+                                className="text-xs px-3 py-1 border-red-300 text-red-600 hover:bg-red-50"
+                              >
+                                Reject
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
