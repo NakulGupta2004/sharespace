@@ -20,33 +20,35 @@ import Footer from './components/layout/Footer'
 // Context & Providers
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
+import { SocketProvider } from './context/SocketContext'
 
 function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <Router future={{ v7_relativeSplatPath: true }}>
-          <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-blue-900">
-            <Navbar />
-            
-            <motion.main
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
-              className="flex-1"
-            >
-              <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterPage />} />
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/create-listing" element={<CreateListingPage />} />
-                <Route path="/listing/:id" element={<ListingDetailPage />} />
-                <Route path="/team-workspace" element={<TeamWorkspacePage />} />
-                <Route path="/listings" element={<ListingPage />} />
-                <Route path="/team/:id" element={<TeamPage />} />
-              </Routes>
-            </motion.main>
+        <SocketProvider>
+          <Router future={{ v7_relativeSplatPath: true }}>
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-blue-900">
+              <Navbar />
+              
+              <motion.main
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5 }}
+                className="flex-1"
+              >
+                <Routes>
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/register" element={<RegisterPage />} />
+                  <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/create-listing" element={<CreateListingPage />} />
+                  <Route path="/listing/:id" element={<ListingDetailPage />} />
+                  <Route path="/team-workspace" element={<TeamWorkspacePage />} />
+                  <Route path="/listings" element={<ListingPage />} />
+                  <Route path="/team/:id" element={<TeamPage />} />
+                </Routes>
+              </motion.main>
 
             <Footer />
             
@@ -64,8 +66,9 @@ function App() {
             />
           </div>
         </Router>
-      </AuthProvider>
-    </ThemeProvider>
+      </SocketProvider>
+    </AuthProvider>
+  </ThemeProvider>
   )
 }
 

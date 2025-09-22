@@ -14,6 +14,7 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const listingRoutes = require('./routes/listings');
 const bookingRoutes = require('./routes/bookings');
+const messageRoutes = require('./routes/messages');
 const teamRoutes = require('./routes/teams');
 const taskRoutes = require('./routes/tasks');
 const transactionRoutes = require('./routes/transactions');
@@ -91,6 +92,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/listings', listingRoutes);
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/messages', messageRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/transactions', transactionRoutes);
@@ -123,13 +125,51 @@ io.on('connection', (socket) => {
   });
 
   // Handle chat messages
-  socket.on('send_message', (data) => {
-    // Emit to specific user or team
-    if (data.type === 'user') {
-      socket.to(`user_${data.targetId}`).emit('new_message', data);
-    } else if (data.type === 'team') {
-      socket.to(`team_${data.targetId}`).emit('new_message', data);
+  socket.on('send_message', async (data) => {
+    try {
+      const { receiverId, listingId, content } = data;
+      
+      // Save message to database
+      const Message = require('./models/Message');
+      const message = new Message({
+        senderId: socket.userId,
+        receiverId,
+        listingId,
+        content: content.trim()
+      });
+      
+      await message.save();
+      await message.populate('senderId', 'name email');
+      
+      // Emit to receiver
+      socket.to(`user_${receiverId}`).emit('new_message', {
+        message,
+        listingId,
+        senderId: socket.userId
+      });
+      
+      // Confirm message sent to sender
+      socket.emit('message_sent', { message });
+      
+    } catch (error) {
+      console.error('Socket message error:', error);
+      socket.emit('message_error', { error: 'Failed to send message' });
     }
+  });
+
+  // Handle typing indicators
+  socket.on('typing_start', (data) => {
+    socket.to(`user_${data.receiverId}`).emit('user_typing', {
+      userId: socket.userId,
+      listingId: data.listingId
+    });
+  });
+
+  socket.on('typing_stop', (data) => {
+    socket.to(`user_${data.receiverId}`).emit('user_stopped_typing', {
+      userId: socket.userId,
+      listingId: data.listingId
+    });
   });
 
   // Handle team task updates

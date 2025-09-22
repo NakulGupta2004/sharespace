@@ -1,28 +1,266 @@
 const express = require('express');
 const { authenticate } = require('../middleware/auth');
+const Booking = require('../models/Booking');
+const Listing = require('../models/Listing');
 const router = express.Router();
+
+// @route   POST /api/bookings
+// @desc    Create a new booking
+// @access  Private
+router.post('/', authenticate, async (req, res) => {
+  try {
+    const { listingId, startDate, endDate, notes } = req.body;
+    const userId = req.user.id;
+
+    // Validate required fields
+    if (!listingId || !startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Listing ID, start date, and end date are required'
+      });
+    }
+
+    // Validate dates
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const now = new Date();
+
+    if (start < now) {
+      return res.status(400).json({
+        success: false,
+        message: 'Start date cannot be in the past'
+      });
+    }
+
+    if (end <= start) {
+      return res.status(400).json({
+        success: false,
+        message: 'End date must be after start date'
+      });
+    }
+
+    // Get listing details
+    const listing = await Listing.findById(listingId);
+    if (!listing) {
+      return res.status(404).json({
+        success: false,
+        message: 'Listing not found'
+      });
+    }
+
+    // Check if user is trying to book their own listing
+    if (listing.ownerId.toString() === userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot book your own listing'
+      });
+    }
+
+    // Check for booking conflicts
+    const conflictingBooking = await Booking.findOne({
+      listingId,
+      status: { $in: ['pending', 'confirmed'] },
+      $or: [
+        {
+          startDate: { $lte: end },
+          endDate: { $gte: start }
+        }
+      ]
+    });
+
+    if (conflictingBooking) {
+      return res.status(400).json({
+        success: false,
+        message: 'Listing is already booked for the selected dates'
+      });
+    }
+
+    // Calculate total amount
+    const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    const basePrice = listing.pricing?.basePrice || 0;
+    const totalAmount = days * basePrice;
+
+    // Create booking
+    const booking = new Booking({
+      userId,
+      listingId,
+      startDate: start,
+      endDate: end,
+      totalAmount,
+      notes
+    });
+
+    await booking.save();
+
+    // Populate user and listing details
+    await booking.populate([
+      { path: 'userId', select: 'name email' },
+      { path: 'listingId', select: 'title images pricing location' }
+    ]);
+
+    res.status(201).json({
+      success: true,
+      data: booking,
+      message: 'Booking created successfully'
+    });
+
+  } catch (error) {
+    console.error('Create booking error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error creating booking'
+    });
+  }
+});
 
 // @route   GET /api/bookings/my
 // @desc    Get current user's bookings
 // @access  Private
-router.get('/my', authenticate, (req, res) => {
-  // Temporary implementation - return empty array
-  res.json({
-    success: true,
-    data: [],
-    message: 'Bookings feature coming soon'
-  });
+router.get('/my', authenticate, async (req, res) => {
+  try {
+    const { filter } = req.query;
+    let query = { userId: req.user.id };
+
+    // Apply filter
+    if (filter && filter !== 'all') {
+      query.status = filter;
+    }
+
+    const bookings = await Booking.find(query)
+      .populate('listingId', 'title images pricing location ownerId')
+      .populate('userId', 'name email')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      data: bookings,
+      count: bookings.length
+    });
+
+  } catch (error) {
+    console.error('Get user bookings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching bookings'
+    });
+  }
+});
+
+// @route   GET /api/bookings/received
+// @desc    Get bookings for user's listings
+// @access  Private
+router.get('/received', authenticate, async (req, res) => {
+  try {
+    const { filter } = req.query;
+    
+    // Get user's listings
+    const userListings = await Listing.find({ ownerId: req.user.id }).select('_id');
+    const listingIds = userListings.map(listing => listing._id);
+
+    let query = { listingId: { $in: listingIds } };
+
+    // Apply filter
+    if (filter && filter !== 'all') {
+      query.status = filter;
+    }
+
+    const bookings = await Booking.find(query)
+      .populate('listingId', 'title images pricing location')
+      .populate('userId', 'name email')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      data: bookings,
+      count: bookings.length
+    });
+
+  } catch (error) {
+    console.error('Get received bookings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching received bookings'
+    });
+  }
+});
+
+// @route   PUT /api/bookings/:id/status
+// @desc    Update booking status
+// @access  Private
+router.put('/:id/status', authenticate, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const validStatuses = ['pending', 'confirmed', 'cancelled', 'completed'];
+
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status'
+      });
+    }
+
+    const booking = await Booking.findById(req.params.id)
+      .populate('listingId', 'ownerId');
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    // Check permissions - only booking creator or listing owner can update
+    const isBookingCreator = booking.userId.toString() === req.user.id;
+    const isListingOwner = booking.listingId.ownerId.toString() === req.user.id;
+
+    if (!isBookingCreator && !isListingOwner) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this booking'
+      });
+    }
+
+    booking.status = status;
+    await booking.save();
+
+    res.json({
+      success: true,
+      data: booking,
+      message: 'Booking status updated successfully'
+    });
+
+  } catch (error) {
+    console.error('Update booking status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error updating booking status'
+    });
+  }
 });
 
 // @route   GET /api/bookings
 // @desc    Get all bookings (admin or future implementation)
 // @access  Private
-router.get('/', authenticate, (req, res) => {
-  res.json({
-    success: true,
-    data: [],
-    message: 'Bookings feature coming soon'
-  });
+router.get('/', authenticate, async (req, res) => {
+  try {
+    const bookings = await Booking.find()
+      .populate('userId', 'name email')
+      .populate('listingId', 'title images pricing')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      data: bookings,
+      count: bookings.length
+    });
+
+  } catch (error) {
+    console.error('Get all bookings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching bookings'
+    });
+  }
 });
 
 module.exports = router;

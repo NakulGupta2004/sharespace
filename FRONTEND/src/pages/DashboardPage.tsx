@@ -1,604 +1,351 @@
-import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import axios from 'axios'
-import toast from 'react-hot-toast'
-import { 
-  Plus, 
-  BookOpen, 
-  Calendar, 
-  Star, 
-  TrendingUp, 
-  Clock,
-  Package,
-  Edit3,
-  Eye,
-  Trash2,
-  Settings,
-  BarChart3,
-  DollarSign
-} from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card'
-import { Button } from '../components/ui/Button'
-import { useAuth } from '../context/AuthContext'
-
-interface Listing {
-  _id: string
-  title: string
-  description: string
-  category: string
-  images: { url: string; alt_text: string }[]
-  pricing: {
-    type: 'rent' | 'share' | 'sell'
-    amount?: number
-    duration?: string
-    currency: string
-  }
-  condition: string
-  availability: {
-    status: 'available' | 'rented' | 'unavailable'
-    start_date?: string
-    end_date?: string
-  }
-  ownerId: string
-  location: string
-  tags: string[]
-  createdAt: string
-  views?: number
-}
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
 
 interface Booking {
-  _id: string
-  listingId: Listing
-  borrowerId: string
-  ownerId: string
-  status: 'pending' | 'approved' | 'active' | 'completed' | 'cancelled'
-  startDate: string
-  endDate: string
-  totalAmount: number
-  createdAt: string
+  _id: string;
+  listingId: {
+    _id: string;
+    title: string;
+    images: string[];
+    category: string;
+    pricing: {
+      basePrice: number;
+      currency: string;
+    };
+  };
+  renterId: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+  ownerId: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+  startDate: string;
+  endDate: string;
+  totalAmount: number;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  createdAt: string;
+  notes?: string;
 }
 
 interface DashboardStats {
-  totalListings: number
-  activeListings: number
-  totalViews: number
-  totalEarnings: number
-  pendingBookings: number
-  activeBookings: number
-  completedBookings: number
-  reputation: number
+  totalBookings: number;
+  activeBookings: number;
+  completedBookings: number;
+  totalEarnings: number;
+  pendingBookings: number;
 }
 
-export default function DashboardPage() {
-  const { user, loading } = useAuth()
-  const navigate = useNavigate()
-  
+const DashboardPage: React.FC = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'all' | 'rented' | 'listed'>('all');
   const [stats, setStats] = useState<DashboardStats>({
-    totalListings: 0,
-    activeListings: 0,
-    totalViews: 0,
-    totalEarnings: 0,
-    pendingBookings: 0,
+    totalBookings: 0,
     activeBookings: 0,
     completedBookings: 0,
-    reputation: 0
-  })
-  
-  const [recentListings, setRecentListings] = useState<Listing[]>([])
-  const [recentBookings, setRecentBookings] = useState<Booking[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+    totalEarnings: 0,
+    pendingBookings: 0
+  });
 
   useEffect(() => {
-    if (!loading && !user) {
-      navigate('/login')
-      return
+    if (!user) {
+      navigate('/login');
+      return;
     }
-    
-    if (user) {
-      fetchDashboardData()
-    }
-  }, [user, loading, navigate])
+    fetchBookings();
+  }, [user, navigate, activeTab]);
 
-  const fetchDashboardData = async () => {
+  const fetchBookings = async () => {
     try {
-      setIsLoading(true)
+      setLoading(true);
+      setError(null);
       
-      // Fetch user's listings
-      const listingsResponse = await axios.get('/api/listings/my')
-      const userListings = listingsResponse.data?.data || listingsResponse.data || []
+      const response = await axios.get(`http://localhost:5000/api/bookings/my?type=${activeTab}`);
       
-      // Fetch user's bookings (with fallback if not implemented)
-      let userBookings = []
-      try {
-        const bookingsResponse = await axios.get('/api/bookings/my')
-        userBookings = bookingsResponse.data?.data || bookingsResponse.data || []
-      } catch (bookingError) {
-        console.log('Bookings endpoint not available, using empty array')
-        userBookings = []
-      }
-      
-      // Calculate stats
-      const calculatedStats = calculateStats(userListings, userBookings)
-      setStats(calculatedStats)
-      
-      // Set recent listings (last 5)
-      setRecentListings(userListings.slice(0, 5))
-      
-      // Set recent bookings (last 5)
-      setRecentBookings(userBookings.slice(0, 5))
-      
-    } catch (error: any) {
-      console.error('Error fetching dashboard data:', error)
-      
-      // If it's a network error (backend not running), show different message
-      if (error.code === 'ERR_NETWORK' || error.message.includes('ERR_CONNECTION_REFUSED')) {
-        toast.error('Cannot connect to server. Please make sure the backend is running.')
+      if (response.data.success) {
+        const bookingsData = response.data.bookings || [];
+        setBookings(bookingsData);
+        calculateStats(bookingsData);
       } else {
-        toast.error('Failed to load dashboard data')
+        setError(response.data.message || 'Failed to fetch bookings');
       }
-      
-      // Set empty data so the UI still renders
-      setRecentListings([])
-      setRecentBookings([])
+    } catch (err: any) {
+      console.error('Error fetching bookings:', err);
+      setError(err.response?.data?.message || 'Failed to fetch bookings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateStats = (bookingsData: Booking[]) => {
+    if (!Array.isArray(bookingsData)) {
       setStats({
-        totalListings: 0,
-        activeListings: 0,
-        totalViews: 0,
-        totalEarnings: 0,
-        pendingBookings: 0,
+        totalBookings: 0,
         activeBookings: 0,
         completedBookings: 0,
-        reputation: user?.reputation || 0
-      })
-    } finally {
-      setIsLoading(false)
+        totalEarnings: 0,
+        pendingBookings: 0
+      });
+      return;
     }
-  }
 
-  const calculateStats = (listings: Listing[], bookings: Booking[]): DashboardStats => {
-    const totalListings = listings.length
-    const activeListings = listings.filter(l => l.availability.status === 'available').length
-    const totalViews = listings.reduce((sum, listing) => sum + (listing.views || 0), 0)
-    
-    const pendingBookings = bookings.filter(b => b.status === 'pending').length
-    const activeBookings = bookings.filter(b => b.status === 'active').length
-    const completedBookings = bookings.filter(b => b.status === 'completed').length
-    const totalEarnings = bookings
-      .filter(b => b.status === 'completed')
-      .reduce((sum, booking) => sum + booking.totalAmount, 0)
-    
-    return {
-      totalListings,
-      activeListings,
-      totalViews,
-      totalEarnings,
-      pendingBookings,
+    const totalBookings = bookingsData.length;
+    const activeBookings = bookingsData.filter(b => b.status === 'confirmed').length;
+    const completedBookings = bookingsData.filter(b => b.status === 'completed').length;
+    const pendingBookings = bookingsData.filter(b => b.status === 'pending').length;
+    const totalEarnings = bookingsData
+      .filter(b => b.status === 'completed' && b.ownerId._id === user?.id)
+      .reduce((sum, b) => sum + b.totalAmount, 0);
+
+    setStats({
+      totalBookings,
       activeBookings,
       completedBookings,
-      reputation: user?.reputation || 0
-    }
-  }
+      totalEarnings,
+      pendingBookings
+    });
+  };
 
-  const deleteListing = async (listingId: string) => {
-    if (!confirm('Are you sure you want to delete this listing?')) {
-      return
-    }
-    
-    try {
-      await axios.delete(`/api/listings/${listingId}`)
-      toast.success('Listing deleted successfully')
-      fetchDashboardData() // Refresh data
-    } catch (error) {
-      toast.error('Failed to delete listing')
-    }
-  }
-
-  const formatCurrency = (amount: number) => {
+  const formatPrice = (price: number, currency: string = 'USD') => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
-    }).format(amount)
-  }
+      currency: currency
+    }).format(price);
+  };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
-  }
+    return new Date(dateString).toLocaleDateString();
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'available':
-        return 'text-green-600 bg-green-100'
-      case 'rented':
-        return 'text-blue-600 bg-blue-100'
-      case 'unavailable':
-        return 'text-gray-600 bg-gray-100'
       case 'pending':
-        return 'text-yellow-600 bg-yellow-100'
-      case 'approved':
-        return 'text-blue-600 bg-blue-100'
-      case 'active':
-        return 'text-green-600 bg-green-100'
-      case 'completed':
-        return 'text-gray-600 bg-gray-100'
+        return 'bg-yellow-100 text-yellow-800';
+      case 'confirmed':
+        return 'bg-green-100 text-green-800';
       case 'cancelled':
-        return 'text-red-600 bg-red-100'
+        return 'bg-red-100 text-red-800';
+      case 'completed':
+        return 'bg-blue-100 text-blue-800';
       default:
-        return 'text-gray-600 bg-gray-100'
+        return 'bg-gray-100 text-gray-800';
     }
-  }
-
-  if (loading || isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-      </div>
-    )
-  }
+  };
 
   if (!user) {
-    return null
+    return null;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                Welcome back, {user.name}!
-              </h1>
-              <p className="mt-2 text-gray-600 dark:text-gray-300">
-                Here's what's happening with your ShareSpace account.
-              </p>
-            </div>
-            <div className="mt-4 sm:mt-0">
-              <Link to="/create-listing">
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create New Listing
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Stats Cards */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
-        >
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Package className="h-6 w-6 text-blue-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    Total Listings
-                  </p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {stats.totalListings}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <TrendingUp className="h-6 w-6 text-green-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    Active Listings
-                  </p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {stats.activeListings}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <Eye className="h-6 w-6 text-purple-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    Total Views
-                  </p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {stats.totalViews}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <DollarSign className="h-6 w-6 text-yellow-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    Total Earnings
-                  </p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {formatCurrency(stats.totalEarnings)}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Quick Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="mb-8"
-        >
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Link to="/create-listing">
-                  <div className="p-4 text-center border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                    <Plus className="h-8 w-8 mx-auto mb-2 text-blue-600" />
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      Add Listing
-                    </p>
-                  </div>
-                </Link>
-                
-                <Link to="/listings">
-                  <div className="p-4 text-center border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                    <BookOpen className="h-8 w-8 mx-auto mb-2 text-green-600" />
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      Browse Items
-                    </p>
-                  </div>
-                </Link>
-                
-                <div className="p-4 text-center border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
-                  <BarChart3 className="h-8 w-8 mx-auto mb-2 text-purple-600" />
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    Analytics
-                  </p>
-                </div>
-                
-                <div className="p-4 text-center border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">
-                  <Settings className="h-8 w-8 mx-auto mb-2 text-gray-600" />
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    Settings
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Recent Listings */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Listings</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {recentListings.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Package className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                    <p className="text-gray-500 dark:text-gray-400">
-                      You haven't created any listings yet.
-                    </p>
-                    <Link to="/create-listing">
-                      <Button className="mt-4">Create Your First Listing</Button>
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {recentListings.map((listing) => (
-                      <div
-                        key={listing._id}
-                        className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
-                      >
-                        <div className="flex items-center space-x-4">
-                          {listing.images.length > 0 ? (
-                            <img
-                              src={listing.images[0].url}
-                              alt={listing.images[0].alt_text}
-                              className="h-12 w-12 rounded-lg object-cover"
-                            />
-                          ) : (
-                            <div className="h-12 w-12 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                              <Package className="h-6 w-6 text-gray-400" />
-                            </div>
-                          )}
-                          <div>
-                            <h3 className="font-medium text-gray-900 dark:text-white">
-                              {listing.title}
-                            </h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              {listing.category} • {formatDate(listing.createdAt)}
-                            </p>
-                            <span
-                              className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                                listing.availability.status
-                              )}`}
-                            >
-                              {listing.availability.status}
-                            </span>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center space-x-2">
-                          <Link to={`/listing/${listing._id}`}>
-                            <Button variant="outline" size="sm">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </Link>
-                          <Button variant="outline" size="sm">
-                            <Edit3 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => deleteListing(listing._id)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* Recent Bookings */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4 }}
-          >
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Bookings</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {recentBookings.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Calendar className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                    <p className="text-gray-500 dark:text-gray-400">
-                      No recent bookings found.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {recentBookings.map((booking) => (
-                      <div
-                        key={booking._id}
-                        className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
-                      >
-                        <div>
-                          <h3 className="font-medium text-gray-900 dark:text-white">
-                            {booking.listingId.title}
-                          </h3>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {formatDate(booking.startDate)} - {formatDate(booking.endDate)}
-                          </p>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <span
-                              className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                                booking.status
-                              )}`}
-                            >
-                              {booking.status}
-                            </span>
-                            <span className="text-sm font-medium text-gray-900 dark:text-white">
-                              {formatCurrency(booking.totalAmount)}
-                            </span>
-                          </div>
-                        </div>
-                        
-                        <div className="text-right">
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            Booked {formatDate(booking.createdAt)}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600 mt-2">Welcome back, {user.name}!</p>
         </div>
 
-        {/* Booking Stats */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="mt-8"
-        >
-          <Card>
-            <CardHeader>
-              <CardTitle>Booking Overview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="text-center">
-                  <div className="p-3 bg-yellow-100 rounded-lg inline-block mb-2">
-                    <Clock className="h-6 w-6 text-yellow-600" />
-                  </div>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {stats.pendingBookings}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Pending Bookings
-                  </p>
-                </div>
-                
-                <div className="text-center">
-                  <div className="p-3 bg-green-100 rounded-lg inline-block mb-2">
-                    <Calendar className="h-6 w-6 text-green-600" />
-                  </div>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {stats.activeBookings}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Active Bookings
-                  </p>
-                </div>
-                
-                <div className="text-center">
-                  <div className="p-3 bg-blue-100 rounded-lg inline-block mb-2">
-                    <Star className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {stats.completedBookings}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Completed Bookings
-                  </p>
-                </div>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
               </div>
-            </CardContent>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Total Bookings</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalBookings}</p>
+              </div>
+            </div>
           </Card>
-        </motion.div>
+
+          <Card className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Active Bookings</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.activeBookings}</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-yellow-100 rounded-lg">
+                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Pending</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.pendingBookings}</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Total Earnings</p>
+                <p className="text-2xl font-bold text-gray-900">{formatPrice(stats.totalEarnings)}</p>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Tabs */}
+        <div className="mb-6">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => setActiveTab('all')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'all'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                All Bookings
+              </button>
+              <button
+                onClick={() => setActiveTab('rented')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'rented'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                My Rentals
+              </button>
+              <button
+                onClick={() => setActiveTab('listed')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'listed'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                My Listings
+              </button>
+            </nav>
+          </div>
+        </div>
+
+        {/* Bookings List */}
+        <Card className="p-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-6">
+            {activeTab === 'all' && 'All Bookings'}
+            {activeTab === 'rented' && 'Items I\'ve Rented'}
+            {activeTab === 'listed' && 'Bookings for My Items'}
+          </h2>
+
+          {loading && (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-2 text-gray-600">Loading bookings...</p>
+            </div>
+          )}
+
+          {error && (
+            <div className="text-center py-8">
+              <div className="text-red-500 text-xl mb-2">⚠️</div>
+              <p className="text-red-600">{error}</p>
+              <Button onClick={fetchBookings} variant="outline" className="mt-4">
+                Try Again
+              </Button>
+            </div>
+          )}
+
+          {!loading && !error && bookings.length === 0 && (
+            <div className="text-center py-8">
+              <div className="text-gray-400 text-6xl mb-4">📋</div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No bookings found</h3>
+              <p className="text-gray-600 mb-4">
+                {activeTab === 'rented' && "You haven't rented any items yet."}
+                {activeTab === 'listed' && "No one has booked your items yet."}
+                {activeTab === 'all' && "You don't have any bookings yet."}
+              </p>
+              <Button onClick={() => navigate('/')} variant="default">
+                Browse Items
+              </Button>
+            </div>
+          )}
+
+          {!loading && !error && bookings.length > 0 && (
+            <div className="space-y-4">
+              {bookings.map((booking) => (
+                <div key={booking._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start space-x-4">
+                      <img
+                        src={booking.listingId.images[0] || '/api/placeholder/80/80'}
+                        alt={booking.listingId.title}
+                        className="w-16 h-16 object-cover rounded-lg"
+                      />
+                      <div className="flex-1">
+                        <h3 className="text-lg font-medium text-gray-900">
+                          {booking.listingId.title}
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          Category: {booking.listingId.category}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {formatDate(booking.startDate)} - {formatDate(booking.endDate)}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {activeTab === 'rented' ? `Owner: ${booking.ownerId.name}` : 
+                           activeTab === 'listed' ? `Renter: ${booking.renterId.name}` :
+                           booking.renterId._id === user.id ? `Owner: ${booking.ownerId.name}` : `Renter: ${booking.renterId.name}`}
+                        </p>
+                        {booking.notes && (
+                          <p className="text-sm text-gray-600 mt-1">
+                            Note: {booking.notes}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-gray-900">
+                        {formatPrice(booking.totalAmount, booking.listingId.pricing.currency)}
+                      </div>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
+                        {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                      </span>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Booked {formatDate(booking.createdAt)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
       </div>
     </div>
-  )
-}
+  );
+};
+
+export default DashboardPage;

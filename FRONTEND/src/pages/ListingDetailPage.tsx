@@ -15,10 +15,13 @@ import {
   CheckCircle,
   Eye,
   Users,
-  BarChart3
+  BarChart3,
+  X
 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
+import { useAuth } from '../context/AuthContext'
+import { useSocket } from '../context/SocketContext'
 
 // Interface matching your backend Listing model
 interface Listing {
@@ -27,24 +30,29 @@ interface Listing {
   description: string
   category: string
   condition: string
-  images: Array<{
+  images?: Array<{
     url: string
     alt_text?: string
   }>
-  image_urls: string[]
-  pricing: {
+  image_urls?: string[]
+  pricing?: {
     type: string
+    basePrice?: number
     dailyRate?: number
     sellPrice?: number
     depositAmount?: number
   }
-  availability: {
+  availability?: {
     status: string
   }
   location?: {
-    pickup: string
+    pickup?: string
+    address?: string
+    city?: string
+    state?: string
+    zipCode?: string
   }
-  ownerId: {
+  ownerId?: {
     _id: string
     name: string
     email: string
@@ -55,23 +63,156 @@ interface Listing {
     }
     college?: string
   }
-  isActive: boolean
-  createdAt: string
+  isActive?: boolean
+  createdAt?: string
   reviews?: number
   views?: number
   interested?: number
   timesRented?: number
+  isFavorited?: boolean
 }
 
 export default function ListingDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const { sendMessage, isConnected } = useSocket()
   
   const [listing, setListing] = useState<Listing | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isFavorited, setIsFavorited] = useState(false)
+
+  // Booking modal state
+  const [showBookingModal, setShowBookingModal] = useState(false)
+  const [bookingData, setBookingData] = useState({
+    startDate: '',
+    endDate: '',
+    notes: ''
+  })
+  const [bookingLoading, setBookingLoading] = useState(false)
+
+  // Message modal state
+  const [showMessageModal, setShowMessageModal] = useState(false)
+  const [newMessage, setNewMessage] = useState('')
+  const [messageSending, setMessageSending] = useState(false)
+
+  useEffect(() => {
+    if (id) {
+      fetchListing(id)
+    }
+  }, [id])
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0
+    }).format(price)
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  }
+
+  const calculateDaysDiff = (start: string, end: string) => {
+    const startDate = new Date(start)
+    const endDate = new Date(end)
+    const diffTime = Math.abs(endDate.getTime() - startDate.getTime())
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  }
+
+  const calculateTotal = () => {
+    if (!bookingData.startDate || !bookingData.endDate || !listing?.pricing?.basePrice) {
+      return 0
+    }
+    const daysDiff = calculateDaysDiff(bookingData.startDate, bookingData.endDate)
+    const totalAmount = daysDiff * (listing.pricing?.basePrice || 0)
+    return totalAmount
+  }
+
+  const handleBooking = async () => {
+    if (!user) {
+      navigate('/login')
+      return
+    }
+
+    if (!bookingData.startDate || !bookingData.endDate) {
+      alert('Please select both start and end dates')
+      return
+    }
+
+    setBookingLoading(true)
+    try {
+      const token = localStorage.getItem('sharespace_token')
+      const response = await axios.post('http://localhost:5000/api/bookings', {
+        listingId: id,
+        startDate: bookingData.startDate,
+        endDate: bookingData.endDate,
+        notes: bookingData.notes
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+
+      if (response.data.success) {
+        alert('Booking request sent successfully!')
+        setShowBookingModal(false)
+        setBookingData({ startDate: '', endDate: '', notes: '' })
+      }
+    } catch (error: any) {
+      console.error('Booking error:', error)
+      alert(error.response?.data?.message || 'Error creating booking')
+    } finally {
+      setBookingLoading(false)
+    }
+  }
+
+  const handleSendMessage = async () => {
+    if (!user) {
+      navigate('/login')
+      return
+    }
+
+    if (!newMessage.trim()) {
+      alert('Please enter a message')
+      return
+    }
+
+    setMessageSending(true)
+    try {
+      const token = localStorage.getItem('sharespace_token')
+      
+      // Send via HTTP API
+      const response = await axios.post('http://localhost:5000/api/messages', {
+        receiverId: listing?.ownerId?._id,
+        listingId: id,
+        content: newMessage.trim()
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+
+      // Also send via socket for real-time delivery
+      if (isConnected && listing?.ownerId?._id) {
+        sendMessage(listing.ownerId._id, id!, newMessage.trim())
+      }
+
+      if (response.data.success) {
+        alert('Message sent successfully!')
+        setShowMessageModal(false)
+        setNewMessage('')
+      }
+    } catch (error: any) {
+      console.error('Message error:', error)
+      alert(error.response?.data?.message || 'Error sending message')
+    } finally {
+      setMessageSending(false)
+    }
+  }
 
   useEffect(() => {
     if (id) {
@@ -133,11 +274,11 @@ export default function ListingDetailPage() {
     if (!listing) return []
     const images = []
     
-    if (listing.images?.length > 0) {
+    if (listing.images && listing.images.length > 0) {
       images.push(...listing.images.map(img => img.url))
     }
     
-    if (listing.image_urls?.length > 0) {
+    if (listing.image_urls && listing.image_urls.length > 0) {
       images.push(...listing.image_urls)
     }
     
@@ -187,7 +328,9 @@ export default function ListingDetailPage() {
   const getPriceDisplay = () => {
     if (!listing?.pricing) return 'Contact for price'
     
-    if (listing.pricing.type === 'rent' && listing.pricing.dailyRate) {
+    if (listing.pricing.type === 'rent' && listing.pricing.basePrice) {
+      return `₹${listing.pricing.basePrice}/day`
+    } else if (listing.pricing.type === 'rent' && listing.pricing.dailyRate) {
       return `₹${listing.pricing.dailyRate}/day`
     } else if (listing.pricing.type === 'sell' && listing.pricing.sellPrice) {
       return `₹${listing.pricing.sellPrice}`
@@ -198,8 +341,11 @@ export default function ListingDetailPage() {
   }
 
   const getWeeklyPrice = () => {
-    if (listing?.pricing?.type === 'rent' && listing.pricing.dailyRate) {
-      return `₹${listing.pricing.dailyRate * 7}/week`
+    if (listing?.pricing?.type === 'rent') {
+      const dailyRate = listing.pricing.basePrice || listing.pricing.dailyRate
+      if (dailyRate) {
+        return `₹${dailyRate * 7}/week`
+      }
     }
     return ''
   }
@@ -351,6 +497,7 @@ export default function ListingDetailPage() {
               </div>
               
               <button
+                onClick={() => setShowBookingModal(true)}
                 className="w-full py-4 bg-gradient-to-r from-blue-600 to-green-500 text-white font-medium rounded-xl flex justify-center items-center mb-4 hover:from-blue-700 hover:to-green-600 transition-all"
               >
                 <Calendar className="h-5 w-5 mr-2" />
@@ -358,6 +505,7 @@ export default function ListingDetailPage() {
               </button>
               
               <button
+                onClick={() => setShowMessageModal(true)}
                 className="w-full py-4 bg-gray-700 text-white font-medium rounded-xl flex justify-center items-center hover:bg-gray-600 transition-colors"
               >
                 <MessageCircle className="h-5 w-5 mr-2" />
@@ -407,7 +555,7 @@ export default function ListingDetailPage() {
             {/* Owner Card */}
             <div className="bg-gray-800 rounded-2xl shadow-lg p-6">
               <div className="flex items-center mb-4">
-                {listing.ownerId.avatar_url ? (
+                {listing.ownerId?.avatar_url ? (
                   <img 
                     src={listing.ownerId.avatar_url} 
                     alt={`${listing.ownerId.name}'s avatar`}
@@ -420,7 +568,7 @@ export default function ListingDetailPage() {
                 )}
                 <div>
                   <h3 className="font-medium text-white">
-                    {listing.ownerId.name}
+                    {listing.ownerId?.name}
                   </h3>
                   <div className="flex items-center text-sm">
                     <Star className="h-4 w-4 text-yellow-500 mr-1" />
@@ -429,7 +577,7 @@ export default function ListingDetailPage() {
                       ({listing.reviews || 23} reviews)
                     </span>
                   </div>
-                  {listing.ownerId.college && (
+                  {listing.ownerId?.college && (
                     <div className="text-sm text-gray-400 mt-1">
                       {listing.ownerId.college}
                     </div>
@@ -473,6 +621,140 @@ export default function ListingDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Booking Modal */}
+      {showBookingModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-white">Book {listing?.title}</h3>
+              <button
+                onClick={() => setShowBookingModal(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={bookingData.startDate}
+                  onChange={(e) => setBookingData(prev => ({ ...prev, startDate: e.target.value }))}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  min={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  value={bookingData.endDate}
+                  onChange={(e) => setBookingData(prev => ({ ...prev, endDate: e.target.value }))}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  min={bookingData.startDate || new Date().toISOString().split('T')[0]}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  value={bookingData.notes}
+                  onChange={(e) => setBookingData(prev => ({ ...prev, notes: e.target.value }))}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                  placeholder="Any special requirements or notes..."
+                />
+              </div>
+              
+              {bookingData.startDate && bookingData.endDate && (
+                <div className="bg-gray-700 p-3 rounded-md">
+                  <div className="flex justify-between text-gray-300">
+                    <span>Days: {calculateDaysDiff(bookingData.startDate, bookingData.endDate)}</span>
+                    <span>Rate: {formatPrice(listing?.pricing?.basePrice || 0)}/day</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-white mt-2">
+                    <span>Total: {formatPrice(calculateTotal())}</span>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowBookingModal(false)}
+                  className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBooking}
+                  disabled={bookingLoading || !bookingData.startDate || !bookingData.endDate}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {bookingLoading ? 'Booking...' : 'Send Request'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Message Modal */}
+      {showMessageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-white">Message {listing?.ownerId?.name}</h3>
+              <button
+                onClick={() => setShowMessageModal(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Your Message
+                </label>
+                <textarea
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={4}
+                  placeholder="Hi! I'm interested in your listing..."
+                />
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowMessageModal(false)}
+                  className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSendMessage}
+                  disabled={messageSending || !newMessage.trim()}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {messageSending ? 'Sending...' : 'Send Message'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

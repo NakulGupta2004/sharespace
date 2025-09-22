@@ -74,7 +74,7 @@ router.post('/register', async (req, res) => {
     // For development, we'll auto-verify the user
     // In production, you would send an email here
     if (process.env.NODE_ENV === 'development') {
-      user.is_verified = true;
+      user.verified = true;
       user.email_verification_token = undefined;
       user.email_verification_expires = undefined;
       await user.save();
@@ -96,7 +96,7 @@ router.post('/register', async (req, res) => {
         name: user.name,
         email: user.email,
         college_id: user.college_id,
-        is_verified: user.is_verified,
+        is_verified: user.verified,
         credits: user.credits,
         reputation: user.reputation
       }
@@ -148,7 +148,7 @@ router.post('/login', async (req, res) => {
     }
 
     // Check if user is verified (disabled for development)
-    if (process.env.NODE_ENV === 'production' && !user.is_verified) {
+    if (process.env.NODE_ENV === 'production' && !user.verified) {
       return res.status(400).json({
         success: false,
         message: 'Please verify your email before logging in'
@@ -156,7 +156,7 @@ router.post('/login', async (req, res) => {
     }
 
     // Update last login
-    user.last_login = Date.now();
+    user.lastActive = Date.now();
     await user.save();
 
     // Generate JWT token
@@ -175,7 +175,7 @@ router.post('/login', async (req, res) => {
         name: user.name,
         email: user.email,
         college_id: user.college_id,
-        is_verified: user.is_verified,
+        is_verified: user.verified,
         credits: user.credits,
         reputation: user.reputation
       }
