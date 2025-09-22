@@ -10,19 +10,14 @@ interface Booking {
   listingId: {
     _id: string;
     title: string;
-    images: string[];
+    images?: string[];
     category: string;
-    pricing: {
-      basePrice: number;
-      currency: string;
+    pricing?: {
+      basePrice?: number;
+      currency?: string;
     };
   };
-  renterId: {
-    _id: string;
-    name: string;
-    email: string;
-  };
-  ownerId: {
+  userId: {
     _id: string;
     name: string;
     email: string;
@@ -33,6 +28,30 @@ interface Booking {
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   createdAt: string;
   notes?: string;
+}
+
+interface Listing {
+  _id: string;
+  title: string;
+  description: string;
+  category: string;
+  condition: string;
+  images?: string[];
+  image_urls?: string[];
+  pricing?: {
+    type: string;
+    basePrice?: number;
+    currency?: string;
+  };
+  availability?: {
+    status: string;
+  };
+  location?: {
+    pickup?: string;
+  };
+  isActive: boolean;
+  createdAt: string;
+  views?: number;
 }
 
 interface DashboardStats {
@@ -47,9 +66,11 @@ const DashboardPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'all' | 'rented' | 'listed'>('all');
+  const [activeTab, setActiveTab] = useState<'bookings' | 'listings'>('bookings');
+  const [bookingFilter, setBookingFilter] = useState<'all' | 'rented' | 'listed'>('all');
   const [stats, setStats] = useState<DashboardStats>({
     totalBookings: 0,
     activeBookings: 0,
@@ -63,18 +84,53 @@ const DashboardPage: React.FC = () => {
       navigate('/login');
       return;
     }
-    fetchBookings();
-  }, [user, navigate, activeTab]);
+    if (activeTab === 'bookings') {
+      fetchBookings();
+    } else if (activeTab === 'listings') {
+      fetchListings();
+    }
+  }, [user, navigate, activeTab, bookingFilter]);
 
   const fetchBookings = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const response = await axios.get(`http://localhost:5000/api/bookings/my?type=${activeTab}`);
+      let response;
+      
+      if (bookingFilter === 'rented') {
+        // Fetch bookings where user is the renter
+        response = await axios.get(`http://localhost:5000/api/bookings/my`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
+        });
+      } else if (bookingFilter === 'listed') {
+        // Fetch bookings where user is the listing owner
+        response = await axios.get(`http://localhost:5000/api/bookings/received`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
+        });
+      } else {
+        // Fetch both rented and received bookings
+        const [rentedResponse, receivedResponse] = await Promise.all([
+          axios.get(`http://localhost:5000/api/bookings/my`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
+          }),
+          axios.get(`http://localhost:5000/api/bookings/received`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
+          })
+        ]);
+        
+        const allBookings = [
+          ...(rentedResponse.data.data || []),
+          ...(receivedResponse.data.data || [])
+        ];
+        
+        setBookings(allBookings);
+        calculateStats(allBookings);
+        return;
+      }
       
       if (response.data.success) {
-        const bookingsData = response.data.bookings || [];
+        const bookingsData = response.data.data || [];
         setBookings(bookingsData);
         calculateStats(bookingsData);
       } else {
@@ -83,6 +139,30 @@ const DashboardPage: React.FC = () => {
     } catch (err: any) {
       console.error('Error fetching bookings:', err);
       setError(err.response?.data?.message || 'Failed to fetch bookings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchListings = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await axios.get(`http://localhost:5000/api/listings`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` },
+        params: { ownerId: user?.id }
+      });
+      
+      if (response.data.success) {
+        const listingsData = response.data.listings || [];
+        setListings(listingsData);
+      } else {
+        setError(response.data.message || 'Failed to fetch listings');
+      }
+    } catch (err: any) {
+      console.error('Error fetching listings:', err);
+      setError(err.response?.data?.message || 'Failed to fetch listings');
     } finally {
       setLoading(false);
     }
@@ -105,7 +185,7 @@ const DashboardPage: React.FC = () => {
     const completedBookings = bookingsData.filter(b => b.status === 'completed').length;
     const pendingBookings = bookingsData.filter(b => b.status === 'pending').length;
     const totalEarnings = bookingsData
-      .filter(b => b.status === 'completed' && b.ownerId._id === user?.id)
+      .filter(b => b.status === 'completed')
       .reduce((sum, b) => sum + b.totalAmount, 0);
 
     setStats({
@@ -215,34 +295,24 @@ const DashboardPage: React.FC = () => {
           </Card>
         </div>
 
-        {/* Tabs */}
+        {/* Main Tabs */}
         <div className="mb-6">
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8">
               <button
-                onClick={() => setActiveTab('all')}
+                onClick={() => setActiveTab('bookings')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'all'
+                  activeTab === 'bookings'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                All Bookings
+                My Bookings
               </button>
               <button
-                onClick={() => setActiveTab('rented')}
+                onClick={() => setActiveTab('listings')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'rented'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                My Rentals
-              </button>
-              <button
-                onClick={() => setActiveTab('listed')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'listed'
+                  activeTab === 'listings'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
@@ -253,96 +323,215 @@ const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Bookings List */}
-        <Card className="p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">
-            {activeTab === 'all' && 'All Bookings'}
-            {activeTab === 'rented' && 'Items I\'ve Rented'}
-            {activeTab === 'listed' && 'Bookings for My Items'}
-          </h2>
-
-          {loading && (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-2 text-gray-600">Loading bookings...</p>
+        {/* Bookings Tab Content */}
+        {activeTab === 'bookings' && (
+          <>
+            {/* Booking Filter Tabs */}
+            <div className="mb-6">
+              <div className="border-b border-gray-200">
+                <nav className="-mb-px flex space-x-8">
+                  <button
+                    onClick={() => setBookingFilter('all')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      bookingFilter === 'all'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    All Bookings
+                  </button>
+                  <button
+                    onClick={() => setBookingFilter('rented')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      bookingFilter === 'rented'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    My Rentals
+                  </button>
+                  <button
+                    onClick={() => setBookingFilter('listed')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      bookingFilter === 'listed'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    My Listings Booked
+                  </button>
+                </nav>
+              </div>
             </div>
-          )}
 
-          {error && (
-            <div className="text-center py-8">
-              <div className="text-red-500 text-xl mb-2">⚠️</div>
-              <p className="text-red-600">{error}</p>
-              <Button onClick={fetchBookings} variant="outline" className="mt-4">
-                Try Again
-              </Button>
-            </div>
-          )}
+            {/* Bookings List */}
+            <Card className="p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-6">
+                {bookingFilter === 'all' && 'All Bookings'}
+                {bookingFilter === 'rented' && 'Items I\'ve Rented'}
+                {bookingFilter === 'listed' && 'Bookings for My Items'}
+              </h2>
 
-          {!loading && !error && bookings.length === 0 && (
-            <div className="text-center py-8">
-              <div className="text-gray-400 text-6xl mb-4">📋</div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No bookings found</h3>
-              <p className="text-gray-600 mb-4">
-                {activeTab === 'rented' && "You haven't rented any items yet."}
-                {activeTab === 'listed' && "No one has booked your items yet."}
-                {activeTab === 'all' && "You don't have any bookings yet."}
-              </p>
-              <Button onClick={() => navigate('/')} variant="default">
-                Browse Items
-              </Button>
-            </div>
-          )}
+              {loading && (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="mt-2 text-gray-600">Loading bookings...</p>
+                </div>
+              )}
 
-          {!loading && !error && bookings.length > 0 && (
-            <div className="space-y-4">
-              {bookings.map((booking) => (
-                <div key={booking._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start space-x-4">
-                      <img
-                        src={booking.listingId.images[0] || '/api/placeholder/80/80'}
-                        alt={booking.listingId.title}
-                        className="w-16 h-16 object-cover rounded-lg"
-                      />
-                      <div className="flex-1">
-                        <h3 className="text-lg font-medium text-gray-900">
-                          {booking.listingId.title}
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          Category: {booking.listingId.category}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {formatDate(booking.startDate)} - {formatDate(booking.endDate)}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {activeTab === 'rented' ? `Owner: ${booking.ownerId.name}` : 
-                           activeTab === 'listed' ? `Renter: ${booking.renterId.name}` :
-                           booking.renterId._id === user.id ? `Owner: ${booking.ownerId.name}` : `Renter: ${booking.renterId.name}`}
-                        </p>
-                        {booking.notes && (
-                          <p className="text-sm text-gray-600 mt-1">
-                            Note: {booking.notes}
-                          </p>
-                        )}
+              {error && (
+                <div className="text-center py-8">
+                  <div className="text-red-500 text-xl mb-2">⚠️</div>
+                  <p className="text-red-600">{error}</p>
+                  <Button onClick={fetchBookings} variant="outline" className="mt-4">
+                    Try Again
+                  </Button>
+                </div>
+              )}
+
+              {!loading && !error && bookings.length === 0 && (
+                <div className="text-center py-8">
+                  <div className="text-gray-400 text-6xl mb-4">📋</div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No bookings found</h3>
+                  <p className="text-gray-600 mb-4">
+                    {bookingFilter === 'rented' && "You haven't rented any items yet."}
+                    {bookingFilter === 'listed' && "No one has booked your items yet."}
+                    {bookingFilter === 'all' && "You don't have any bookings yet."}
+                  </p>
+                  <Button onClick={() => navigate('/')} variant="default">
+                    Browse Items
+                  </Button>
+                </div>
+              )}
+
+              {!loading && !error && bookings.length > 0 && (
+                <div className="space-y-4">
+                  {bookings.map((booking) => (
+                    <div key={booking._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start space-x-4">
+                          <img
+                            src={(booking.listingId.images && booking.listingId.images[0]) || '/api/placeholder/80/80'}
+                            alt={booking.listingId.title}
+                            className="w-16 h-16 object-cover rounded-lg"
+                          />
+                          <div className="flex-1">
+                            <h3 className="text-lg font-medium text-gray-900">
+                              {booking.listingId.title}
+                            </h3>
+                            <p className="text-sm text-gray-600">
+                              Category: {booking.listingId.category}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              {formatDate(booking.startDate)} - {formatDate(booking.endDate)}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              Renter: {booking.userId.name}
+                            </p>
+                            {booking.notes && (
+                              <p className="text-sm text-gray-600 mt-1">
+                                Note: {booking.notes}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-gray-900">
+                            {formatPrice(booking.totalAmount, booking.listingId.pricing?.currency || 'USD')}
+                          </div>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
+                            {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                          </span>
+                          <div className="text-xs text-gray-500 mt-1">
+                            Booked {formatDate(booking.createdAt)}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-gray-900">
-                        {formatPrice(booking.totalAmount, booking.listingId.pricing.currency)}
-                      </div>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
-                        {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                      </span>
-                      <div className="text-xs text-gray-500 mt-1">
-                        Booked {formatDate(booking.createdAt)}
+                  ))}
+                </div>
+              )}
+            </Card>
+          </>
+        )}
+
+        {/* Listings Tab Content */}
+        {activeTab === 'listings' && (
+          <Card className="p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-gray-900">My Listings</h2>
+              <Button onClick={() => navigate('/create-listing')} variant="default">
+                Create New Listing
+              </Button>
+            </div>
+
+            {loading && (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-2 text-gray-600">Loading listings...</p>
+              </div>
+            )}
+
+            {error && (
+              <div className="text-center py-8">
+                <div className="text-red-500 text-xl mb-2">⚠️</div>
+                <p className="text-red-600">{error}</p>
+                <Button onClick={fetchListings} variant="outline" className="mt-4">
+                  Try Again
+                </Button>
+              </div>
+            )}
+
+            {!loading && !error && listings.length === 0 && (
+              <div className="text-center py-8">
+                <div className="text-gray-400 text-6xl mb-4">📝</div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No listings found</h3>
+                <p className="text-gray-600 mb-4">You haven't created any listings yet.</p>
+                <Button onClick={() => navigate('/create-listing')} variant="default">
+                  Create Your First Listing
+                </Button>
+              </div>
+            )}
+
+            {!loading && !error && listings.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {listings.map((listing) => (
+                  <div key={listing._id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                    <img
+                      src={(listing.images && listing.images[0]) || (listing.image_urls && listing.image_urls[0]) || '/api/placeholder/300/200'}
+                      alt={listing.title}
+                      className="w-full h-48 object-cover"
+                    />
+                    <div className="p-4">
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">{listing.title}</h3>
+                      <p className="text-sm text-gray-600 mb-2">Category: {listing.category}</p>
+                      <p className="text-sm text-gray-600 mb-2">Condition: {listing.condition}</p>
+                      {listing.pricing && (
+                        <p className="text-lg font-bold text-gray-900 mb-2">
+                          ₹{listing.pricing.basePrice}/day
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          listing.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {listing.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                        <Button 
+                          onClick={() => navigate(`/listing/${listing._id}`)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          View Details
+                        </Button>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
+                ))}
+              </div>
+            )}
+          </Card>
+        )}
       </div>
     </div>
   );
