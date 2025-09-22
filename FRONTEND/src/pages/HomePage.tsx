@@ -38,7 +38,10 @@ interface Listing {
     name: string
     email: string
     avatar_url?: string
-    reputation: number
+    reputation: {
+      score: number
+      ratingsCount: number
+    }
   }
   location: string
   tags: string[]
@@ -65,7 +68,7 @@ export default function HomePage() {
     try {
       setLoading(true)
       // Fetch all available listings (increased limit to show more items)
-      const response = await axios.get('/api/listings?limit=20&sort=-createdAt')
+      const response = await axios.get('http://localhost:5000/api/listings?limit=20&sort=-createdAt')
       if (response.data.success) {
         setListings(response.data.listings || [])
       }
@@ -91,7 +94,7 @@ export default function HomePage() {
       
       for (const category of categories) {
         try {
-          const response = await axios.get(`/api/listings?category=${category}&limit=1`)
+          const response = await axios.get(`http://localhost:5000/api/listings?category=${category}&limit=1`)
           if (response.data.success) {
             counts[category] = response.data.pagination?.total || 0
           }
@@ -394,7 +397,10 @@ export default function HomePage() {
                             <div className="flex items-center space-x-1">
                               <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                               <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                {listing.ownerId?.reputation || 0}
+                                {listing.ownerId?.reputation?.score?.toFixed(1) || '0.0'}
+                              </span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                ({listing.ownerId?.reputation?.ratingsCount || 0})
                               </span>
                             </div>
                             <span className="text-lg font-bold text-gray-900 dark:text-white">

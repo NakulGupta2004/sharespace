@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -291,7 +292,6 @@ router.get('/', async (req, res) => {
     try {
       const listings = await Listing.find(filter)
         .populate('ownerId', 'name email avatar_url reputation')
-        .populate('teamId', 'name')
         .sort(sort)
         .limit(limit * 1)
         .skip((page - 1) * limit)
@@ -368,9 +368,18 @@ router.get('/', async (req, res) => {
 // @access  Public
 router.get('/:id', async (req, res) => {
   try {
-    const listing = await Listing.findById(req.params.id)
-      .populate('ownerId', 'name email avatar_url reputation phone')
-      .populate('teamId', 'name description members');
+    const { id } = req.params;
+    
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid listing ID format'
+      });
+    }
+
+    const listing = await Listing.findById(id)
+      .populate('ownerId', 'name email avatar_url reputation phone college');
 
     if (!listing) {
       return res.status(404).json({
@@ -388,7 +397,8 @@ router.get('/:id', async (req, res) => {
     console.error('Get listing error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching listing'
+      message: 'Error fetching listing',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

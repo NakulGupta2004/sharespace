@@ -1,22 +1,24 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
 import axios from 'axios'
+import { motion } from 'framer-motion'
 import { 
   ChevronLeft, 
   ChevronRight, 
   Heart, 
   Share2, 
   Star, 
-  User, 
-  MessageCircle, 
   Calendar,
+  MessageCircle,
+  User,
+  Shield,
+  CheckCircle,
   Eye,
   Users,
-  BarChart3,
-  Shield,
-  CheckCircle
+  BarChart3
 } from 'lucide-react'
+import { Button } from '../components/ui/Button'
+import { Card } from '../components/ui/Card'
 
 // Interface matching your backend Listing model
 interface Listing {
@@ -47,10 +49,18 @@ interface Listing {
     name: string
     email: string
     avatar_url?: string
-    reputation?: number
+    reputation?: {
+      score: number
+      ratingsCount: number
+    }
+    college?: string
   }
   isActive: boolean
   createdAt: string
+  reviews?: number
+  views?: number
+  interested?: number
+  timesRented?: number
 }
 
 export default function ListingDetailPage() {
@@ -72,7 +82,15 @@ export default function ListingDetailPage() {
   const fetchListing = async (listingId: string) => {
     try {
       setLoading(true)
-      const response = await axios.get(`http://localhost:3000/api/listings/${listingId}`)
+      setError(null)
+      
+      // Validate ObjectId format on frontend
+      if (!listingId || listingId.length !== 24) {
+        setError('Invalid listing ID')
+        return
+      }
+      
+      const response = await axios.get(`http://localhost:5000/api/listings/${listingId}`)
       
       if (response.data?.success && response.data?.listing) {
         setListing(response.data.listing)
@@ -81,7 +99,30 @@ export default function ListingDetailPage() {
       }
     } catch (err: any) {
       console.error('Error fetching listing:', err)
-      setError('Failed to load listing details')
+      
+      // Better error handling based on response status
+      if (err.response) {
+        const status = err.response.status
+        const message = err.response.data?.message
+        
+        switch (status) {
+          case 400:
+            setError(message || 'Invalid listing ID format')
+            break
+          case 404:
+            setError('Listing not found')
+            break
+          case 500:
+            setError('Server error. Please try again later.')
+            break
+          default:
+            setError('Failed to load listing details')
+        }
+      } else if (err.request) {
+        setError('Unable to connect to server. Please check your connection.')
+      } else {
+        setError('Failed to load listing details')
+      }
     } finally {
       setLoading(false)
     }
@@ -100,6 +141,11 @@ export default function ListingDetailPage() {
       images.push(...listing.image_urls)
     }
     
+    // If no images, add a placeholder
+    if (images.length === 0) {
+      images.push('https://via.placeholder.com/800x400?text=No+Image')
+    }
+    
     return images
   }
 
@@ -114,6 +160,27 @@ export default function ListingDetailPage() {
   const prevImage = () => {
     if (images.length > 1) {
       setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length)
+    }
+  }
+
+  const handleFavorite = () => {
+    setIsFavorited(prev => !prev)
+    // Add API call to save favorite status
+  }
+
+  const handleShare = () => {
+    // Implement share functionality
+    if (navigator.share && listing) {
+      navigator.share({
+        title: listing.title,
+        text: listing.description,
+        url: window.location.href
+      }).catch(err => console.error('Error sharing:', err))
+    } else {
+      // Fallback - copy link to clipboard
+      navigator.clipboard.writeText(window.location.href)
+        .then(() => alert('Link copied to clipboard!'))
+        .catch(err => console.error('Could not copy link:', err))
     }
   }
 
@@ -170,13 +237,13 @@ export default function ListingDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-900 text-white">
       {/* Header with back button */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm">
+      <div className="bg-gray-900 shadow-sm border-b border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
+            className="flex items-center text-gray-400 hover:text-white transition-colors"
           >
             <ChevronLeft className="h-5 w-5 mr-1" />
             Back to listings
@@ -189,253 +256,220 @@ export default function ListingDetailPage() {
           {/* Main Content - Left Side */}
           <div className="lg:col-span-2 space-y-6">
             {/* Image Gallery */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden"
-            >
+            <div className="bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
               <div className="relative">
                 <img
-                  src={images[currentImageIndex] || '/api/placeholder/800/400'}
+                  src={images[currentImageIndex]}
                   alt={listing.title}
-                  className="w-full h-96 object-cover"
+                  className="w-full h-[400px] object-cover"
                 />
                 
-                {/* Navigation arrows */}
+                {/* Image Navigation */}
                 {images.length > 1 && (
                   <>
                     <button
                       onClick={prevImage}
-                      className="absolute left-4 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70 transition-colors"
+                      className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 rounded-full p-2 hover:bg-opacity-70 transition-all"
                     >
-                      <ChevronLeft className="h-5 w-5" />
+                      <ChevronLeft className="h-6 w-6 text-white" />
                     </button>
                     <button
                       onClick={nextImage}
-                      className="absolute right-4 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70 transition-colors"
+                      className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 rounded-full p-2 hover:bg-opacity-70 transition-all"
                     >
-                      <ChevronRight className="h-5 w-5" />
+                      <ChevronRight className="h-6 w-6 text-white" />
                     </button>
                   </>
                 )}
-
-                {/* Action buttons */}
-                <div className="absolute top-4 right-4 flex space-x-2">
+                
+                {/* Image Controls */}
+                <div className="absolute top-4 right-4 flex gap-2">
                   <button
-                    onClick={() => setIsFavorited(!isFavorited)}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
-                      isFavorited 
-                        ? 'bg-red-500 text-white' 
-                        : 'bg-black/50 text-white hover:bg-black/70'
-                    }`}
+                    onClick={handleFavorite}
+                    className={`bg-black bg-opacity-50 rounded-full p-2 hover:bg-opacity-70 transition-all ${isFavorited ? 'text-red-500' : 'text-white'}`}
                   >
                     <Heart className={`h-5 w-5 ${isFavorited ? 'fill-current' : ''}`} />
                   </button>
-                  <button className="w-10 h-10 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70 transition-colors">
-                    <Share2 className="h-5 w-5" />
+                  <button
+                    onClick={handleShare}
+                    className="bg-black bg-opacity-50 rounded-full p-2 hover:bg-opacity-70 transition-all"
+                  >
+                    <Share2 className="h-5 w-5 text-white" />
                   </button>
                 </div>
-
-                {/* Image indicators */}
-                {images.length > 1 && (
-                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-                    {images.map((_, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setCurrentImageIndex(index)}
-                        className={`w-2 h-2 rounded-full transition-colors ${
-                          index === currentImageIndex ? 'bg-white' : 'bg-white/50'
-                        }`}
-                      />
-                    ))}
+                
+                {/* Thumbnail navigation */}
+                <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
+                  {images.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentImageIndex(idx)}
+                      className={`w-2.5 h-2.5 rounded-full ${idx === currentImageIndex ? 'bg-white' : 'bg-white/50'}`}
+                      aria-label={`Go to image ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+            
+            {/* Listing Title & Description */}
+            <div className="bg-gray-800 rounded-2xl shadow-lg p-6">
+              <h1 className="text-3xl font-bold text-white mb-2">
+                {listing.title}
+              </h1>
+              <div className="flex flex-wrap items-center gap-6 mb-6 text-gray-300">
+                <div className="flex items-center">
+                  <span className="text-sm bg-gray-700 px-3 py-1 rounded-full">
+                    {listing.category}
+                  </span>
+                </div>
+                {listing.condition && (
+                  <div className="flex items-center">
+                    <span className="text-sm bg-green-700 px-3 py-1 rounded-full">
+                      {listing.condition}
+                    </span>
                   </div>
                 )}
               </div>
-
-              {/* Thumbnail strip */}
-              {images.length > 1 && (
-                <div className="p-4 flex space-x-3 overflow-x-auto">
-                  {images.map((image, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentImageIndex(index)}
-                      className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-colors ${
-                        index === currentImageIndex 
-                          ? 'border-blue-500' 
-                          : 'border-gray-200 dark:border-gray-600'
-                      }`}
-                    >
-                      <img
-                        src={image}
-                        alt={`${listing.title} ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </button>
-                  ))}
+              <p className="text-gray-300 mb-6 whitespace-pre-line">
+                {listing.description}
+              </p>
+            </div>
+          </div>
+          
+          {/* Sidebar - Right Side */}
+          <div className="space-y-6">
+            {/* Pricing Card */}
+            <div className="bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-700">
+              <div className="mb-6">
+                <span className="text-3xl font-bold text-white">{getPriceDisplay()}</span>
+                {getWeeklyPrice() && (
+                  <div className="mt-1 text-gray-400 text-sm">
+                    {getWeeklyPrice()}
+                  </div>
+                )}
+              </div>
+              
+              <button
+                className="w-full py-4 bg-gradient-to-r from-blue-600 to-green-500 text-white font-medium rounded-xl flex justify-center items-center mb-4 hover:from-blue-700 hover:to-green-600 transition-all"
+              >
+                <Calendar className="h-5 w-5 mr-2" />
+                Book Now
+              </button>
+              
+              <button
+                className="w-full py-4 bg-gray-700 text-white font-medium rounded-xl flex justify-center items-center hover:bg-gray-600 transition-colors"
+              >
+                <MessageCircle className="h-5 w-5 mr-2" />
+                Message Owner
+              </button>
+            </div>
+            
+            {/* Owner Card */}
+            <div className="bg-gray-800 rounded-2xl shadow-lg p-6">
+              <h2 className="text-xl font-semibold text-white mb-4">
+                Item Statistics
+              </h2>
+              
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-300 flex items-center">
+                    <Eye className="h-4 w-4 mr-2" />
+                    Views
+                  </span>
+                  <span className="font-medium text-white">
+                    {listing.views || 124}
+                  </span>
                 </div>
-              )}
-            </motion.div>
-
-            {/* Product Details */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6"
-            >
-              {/* Title and Price */}
-              <div className="flex justify-between items-start mb-4">
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-300 flex items-center">
+                    <Heart className="h-4 w-4 mr-2" />
+                    Interested
+                  </span>
+                  <span className="font-medium text-white">
+                    {listing.interested || 8}
+                  </span>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-300 flex items-center">
+                    <Users className="h-4 w-4 mr-2" />
+                    Times rented
+                  </span>
+                  <span className="font-medium text-white">
+                    {listing.timesRented || 15}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Owner Card */}
+            <div className="bg-gray-800 rounded-2xl shadow-lg p-6">
+              <div className="flex items-center mb-4">
+                {listing.ownerId.avatar_url ? (
+                  <img 
+                    src={listing.ownerId.avatar_url} 
+                    alt={`${listing.ownerId.name}'s avatar`}
+                    className="h-12 w-12 rounded-full mr-3"
+                  />
+                ) : (
+                  <div className="h-12 w-12 rounded-full bg-gray-600 flex items-center justify-center mr-3">
+                    <User className="h-6 w-6 text-gray-300" />
+                  </div>
+                )}
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                    {listing.title}
-                  </h1>
-                  <div className="flex items-center space-x-4">
-                    <span className="text-gray-600 dark:text-gray-400 flex items-center">
-                      📱 {listing.category}
-                    </span>
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      listing.condition === 'excellent' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                      listing.condition === 'good' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
-                      'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-                    }`}>
-                      {listing.condition} condition
+                  <h3 className="font-medium text-white">
+                    {listing.ownerId.name}
+                  </h3>
+                  <div className="flex items-center text-sm">
+                    <Star className="h-4 w-4 text-yellow-500 mr-1" />
+                    <span className="text-yellow-500 font-medium">4.9</span>
+                    <span className="text-gray-400 ml-1">
+                      ({listing.reviews || 23} reviews)
                     </span>
                   </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-3xl font-bold text-green-600 dark:text-green-400">
-                    {getPriceDisplay()}
-                  </div>
-                  {getWeeklyPrice() && (
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {getWeeklyPrice()}
+                  {listing.ownerId.college && (
+                    <div className="text-sm text-gray-400 mt-1">
+                      {listing.ownerId.college}
                     </div>
                   )}
                 </div>
               </div>
-
-              {/* Description */}
-              <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
-                {listing.description}
-              </p>
-            </motion.div>
-          </div>
-
-          {/* Sidebar - Right Side */}
-          <div className="space-y-6">
-            {/* Owner Info */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6"
-            >
-              <div className="flex items-center space-x-4 mb-6">
-                <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center">
-                  {listing.ownerId.avatar_url ? (
-                    <img
-                      src={listing.ownerId.avatar_url}
-                      alt={listing.ownerId.name}
-                      className="w-16 h-16 rounded-full object-cover"
-                    />
-                  ) : (
-                    <User className="h-8 w-8 text-white" />
-                  )}
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white text-lg">
-                    {listing.ownerId.name}
-                  </h3>
-                  <div className="flex items-center">
-                    <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
-                    <span className="font-medium">{listing.ownerId.reputation || '4.9'}</span>
-                    <span className="text-gray-500 dark:text-gray-400 ml-1">(23 reviews)</span>
-                  </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    BITS Pilani
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-3 mb-6">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">Response time:</span>
-                  <span className="font-medium text-gray-900 dark:text-white">~2 hours</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">Member since:</span>
-                  <span className="font-medium text-gray-900 dark:text-white">15/08/2023</span>
-                </div>
-              </div>
-
-              <button className="w-full flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mb-3">
-                <MessageCircle className="h-5 w-5 mr-2" />
-                Message Owner
-              </button>
-
-              <button className="w-full flex items-center justify-center px-4 py-3 bg-gradient-to-r from-blue-500 to-green-500 text-white rounded-lg hover:from-blue-600 hover:to-green-600 transition-all">
-                <Calendar className="h-5 w-5 mr-2" />
-                Book Now
-              </button>
-            </motion.div>
-
-            {/* Item Statistics */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6"
-            >
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                <BarChart3 className="h-5 w-5 mr-2" />
-                Item Statistics
-              </h3>
-              <div className="space-y-4">
+              
+              <div className="space-y-3 text-sm text-gray-300">
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400 flex items-center">
-                    <Eye className="h-4 w-4 mr-2" />
-                    Views:
-                  </span>
-                  <span className="font-medium text-gray-900 dark:text-white">124</span>
+                  <span>Response time:</span>
+                  <span className="text-white">~2 hours</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400 flex items-center">
-                    <Heart className="h-4 w-4 mr-2" />
-                    Interested:
-                  </span>
-                  <span className="font-medium text-gray-900 dark:text-white">8</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400 flex items-center">
-                    <Users className="h-4 w-4 mr-2" />
-                    Times rented:
-                  </span>
-                  <span className="font-medium text-gray-900 dark:text-white">15</span>
+                  <span>Member since:</span>
+                  <span className="text-white">15/08/2023</span>
                 </div>
               </div>
-            </motion.div>
-
+            </div>
+            
             {/* Safety Tips */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-              className="bg-green-50 border border-green-200 rounded-2xl p-6 dark:bg-green-900/20 dark:border-green-800"
-            >
-              <div className="flex items-start">
-                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 mr-3 flex-shrink-0" />
-                <div>
-                  <h3 className="font-medium text-green-800 dark:text-green-200 mb-2">
-                    Safety Tips
-                  </h3>
-                  <ul className="text-sm text-green-700 dark:text-green-300 space-y-1">
-                    <li>• Meet in public campus locations</li>
-                    <li>• Inspect item before pickup</li>
-                    <li>• Use ShareSpace's QR verification</li>
-                    <li>• Report any issues immediately</li>
-                  </ul>
-                </div>
+            <div className="bg-gray-800 rounded-2xl shadow-lg p-6 border-l-4 border-green-500">
+              <div className="flex items-center mb-4">
+                <Shield className="h-5 w-5 text-green-500 mr-2" />
+                <h3 className="text-lg font-medium text-white">Safety Tips</h3>
               </div>
-            </motion.div>
+              <ul className="space-y-3 text-gray-300">
+                <li className="flex">
+                  <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" />
+                  <span>Meet in public campus locations</span>
+                </li>
+                <li className="flex">
+                  <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" />
+                  <span>Check the item before paying</span>
+                </li>
+                <li className="flex">
+                  <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 mr-3 flex-shrink-0" />
+                  <span>Pay only after receiving the item</span>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
