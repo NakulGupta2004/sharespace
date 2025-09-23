@@ -18,6 +18,7 @@ const messageRoutes = require('./routes/messages');
 const teamRoutes = require('./routes/teams');
 const taskRoutes = require('./routes/tasks');
 const transactionRoutes = require('./routes/transactions');
+const paymentRoutes = require('./routes/payments');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -96,6 +97,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/transactions', transactionRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Socket.IO connection handling
 io.use(socketAuth);

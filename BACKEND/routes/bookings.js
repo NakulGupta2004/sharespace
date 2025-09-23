@@ -178,7 +178,7 @@ router.get('/received', authenticate, async (req, res) => {
     }
 
     const bookings = await Booking.find(query)
-      .populate('listingId', 'title images category pricing location')
+      .populate('listingId', 'title images category pricing location ownerId')
       .populate('userId', 'name email')
       .sort({ createdAt: -1 });
 

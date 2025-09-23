@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { PaymentButton } from '../components/ui/PaymentButton';
 
 interface Booking {
   _id: string;
@@ -19,6 +20,7 @@ interface Booking {
       basePrice?: number;
       currency?: string;
     };
+    ownerId?: string;
   };
   userId: {
     _id: string;
@@ -28,7 +30,10 @@ interface Booking {
   startDate: string;
   endDate: string;
   totalAmount: number;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'active';
+  paymentStatus?: 'pending' | 'paid' | 'failed';
+  paymentId?: string;
+  paymentDate?: string;
   createdAt: string;
   notes?: string;
 }
@@ -84,12 +89,17 @@ const DashboardPage: React.FC = () => {
     totalEarnings: 0,
     pendingBookings: 0
   });
+  const [userEarnings, setUserEarnings] = useState<number>(0);
 
   useEffect(() => {
     if (!user) {
       navigate('/login');
       return;
     }
+    
+    // Load user earnings
+    refreshUserData();
+    
     if (activeTab === 'bookings') {
       fetchBookings();
     } else if (activeTab === 'listings') {
@@ -104,43 +114,24 @@ const DashboardPage: React.FC = () => {
       
       let response;
       
-      if (bookingFilter === 'rented') {
-        // Fetch bookings where user is the renter
+      if (bookingFilter === 'rented' || bookingFilter === 'all') {
+        // Fetch bookings where user is the renter (items they've rented)
         response = await axios.get(`http://localhost:5000/api/bookings/my`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
         });
       } else if (bookingFilter === 'listed') {
-        // Fetch bookings where user is the listing owner
+        // Fetch bookings where user is the listing owner (their items that were booked)
         response = await axios.get(`http://localhost:5000/api/bookings/received`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
         });
-      } else {
-        // Fetch both rented and received bookings
-        const [rentedResponse, receivedResponse] = await Promise.all([
-          axios.get(`http://localhost:5000/api/bookings/my`, {
-            headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
-          }),
-          axios.get(`http://localhost:5000/api/bookings/received`, {
-            headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
-          })
-        ]);
-        
-        const allBookings = [
-          ...(rentedResponse.data.data || []),
-          ...(receivedResponse.data.data || [])
-        ];
-        
-        setBookings(allBookings);
-        calculateStats(allBookings);
-        return;
       }
       
-      if (response.data.success) {
+      if (response && response.data.success) {
         const bookingsData = response.data.data || [];
         setBookings(bookingsData);
         calculateStats(bookingsData);
       } else {
-        setError(response.data.message || 'Failed to fetch bookings');
+        setError('Failed to fetch bookings');
       }
     } catch (err: any) {
       console.error('Error fetching bookings:', err);
@@ -199,6 +190,24 @@ const DashboardPage: React.FC = () => {
     }
   };
 
+  const refreshUserData = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/users/profile', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
+      });
+      
+      if (response.data.success) {
+        // Update user earnings from profile
+        const userTotalEarnings = response.data.user.totalEarnings || 0;
+        setUserEarnings(userTotalEarnings);
+        console.log('User earnings updated:', userTotalEarnings);
+      }
+    } catch (err: any) {
+      console.error('Error refreshing user data:', err);
+      // Don't show error to user as this is not critical
+    }
+  };
+
   const calculateStats = (bookingsData: Booking[]) => {
     if (!Array.isArray(bookingsData)) {
       setStats({
@@ -212,11 +221,11 @@ const DashboardPage: React.FC = () => {
     }
 
     const totalBookings = bookingsData.length;
-    const activeBookings = bookingsData.filter(b => b.status === 'confirmed').length;
+    const activeBookings = bookingsData.filter(b => b.status === 'confirmed' || b.status === 'active').length;
     const completedBookings = bookingsData.filter(b => b.status === 'completed').length;
     const pendingBookings = bookingsData.filter(b => b.status === 'pending').length;
     const totalEarnings = bookingsData
-      .filter(b => b.status === 'completed')
+      .filter(b => b.status === 'completed' || b.status === 'active')
       .reduce((sum, b) => sum + b.totalAmount, 0);
 
     setStats({
@@ -320,7 +329,7 @@ const DashboardPage: React.FC = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Earnings</p>
-                <p className="text-2xl font-bold text-gray-900">{formatPrice(stats.totalEarnings)}</p>
+                <p className="text-2xl font-bold text-gray-900">₹{userEarnings.toFixed(2)}</p>
               </div>
             </div>
           </Card>
@@ -442,14 +451,37 @@ const DashboardPage: React.FC = () => {
                       <div className="flex items-start justify-between">
                         <div className="flex items-start space-x-4">
                           <img
-                            src={(booking.listingId.images && booking.listingId.images[0]?.url) || '/api/placeholder/80/80'}
+                            src={(() => {
+                              const imageUrl = booking.listingId.images && booking.listingId.images[0]?.url;
+                              // Check if URL is valid and not a base64 data URL without proper content
+                              if (imageUrl && imageUrl.startsWith('http') && !imageUrl.includes('data:;base64,=')) {
+                                return imageUrl;
+                              }
+                              return 'https://via.placeholder.com/80x80/e5e7eb/6b7280?text=No+Image';
+                            })()}
                             alt={booking.listingId.title}
                             className="w-16 h-16 object-cover rounded-lg"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = 'https://via.placeholder.com/80x80/e5e7eb/6b7280?text=Error';
+                            }}
                           />
                           <div className="flex-1">
-                            <h3 className="text-lg font-medium text-gray-900">
-                              {booking.listingId.title}
-                            </h3>
+                            <div className="flex items-center space-x-2 mb-1">
+                              <h3 className="text-lg font-medium text-gray-900">
+                                {booking.listingId.title}
+                              </h3>
+                              {/* Role indicator */}
+                              {booking.userId._id === user?.id ? (
+                                <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                  You're Renting
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                                  Your Item
+                                </span>
+                              )}
+                            </div>
                             <p className="text-sm text-gray-600">
                               Category: {booking.listingId.category}
                             </p>
@@ -457,7 +489,11 @@ const DashboardPage: React.FC = () => {
                               {formatDate(booking.startDate)} - {formatDate(booking.endDate)}
                             </p>
                             <p className="text-sm text-gray-600">
-                              Renter: {booking.userId.name}
+                              {booking.userId._id === user?.id ? (
+                                `Your rental from this owner`
+                              ) : (
+                                `Renter: ${booking.userId.name}`
+                              )}
                             </p>
                             {booking.notes && (
                               <p className="text-sm text-gray-600 mt-1">
@@ -494,6 +530,51 @@ const DashboardPage: React.FC = () => {
                               >
                                 Reject
                               </Button>
+                            </div>
+                          )}
+
+                          {/* Pay Now button for confirmed bookings when current user is the renter */}
+                          {booking.status === 'confirmed' && 
+                           booking.userId._id === user?.id &&
+                           (!booking.paymentStatus || booking.paymentStatus === 'pending') && (
+                            <div className="mt-2">
+                              <PaymentButton
+                                bookingId={booking._id}
+                                amount={booking.totalAmount}
+                                currency={booking.listingId.pricing?.currency || 'INR'}
+                                description={`Payment for ${booking.listingId.title}`}
+                                userInfo={{
+                                  name: user?.name || '',
+                                  email: user?.email || ''
+                                }}
+                                onSuccess={(_response) => {
+                                  alert('Payment successful!');
+                                  fetchBookings(); // Refresh bookings
+                                  refreshUserData(); // Refresh user earnings
+                                  // Also refresh after a short delay to ensure backend has updated
+                                  setTimeout(() => {
+                                    refreshUserData();
+                                  }, 1000);
+                                }}
+                                onFailure={(error) => {
+                                  alert(`Payment failed: ${error.message}`);
+                                }}
+                                className="text-xs px-3 py-1"
+                              />
+                            </div>
+                          )}
+
+                          {/* Payment status indicator */}
+                          {booking.paymentStatus === 'paid' && (
+                            <div className="mt-2">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                ✓ Paid
+                              </span>
+                              {booking.paymentDate && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  Paid on {formatDate(booking.paymentDate)}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -549,9 +630,20 @@ const DashboardPage: React.FC = () => {
                 {listings.map((listing) => (
                   <div key={listing._id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
                     <img
-                      src={(listing.images && listing.images[0]?.url) || (listing.image_urls && listing.image_urls[0]) || '/api/placeholder/300/200'}
+                      src={(() => {
+                        const imageUrl = (listing.images && listing.images[0]?.url) || (listing.image_urls && listing.image_urls[0]);
+                        // Check if URL is valid and not a base64 data URL without proper content
+                        if (imageUrl && imageUrl.startsWith('http') && !imageUrl.includes('data:;base64,=')) {
+                          return imageUrl;
+                        }
+                        return 'https://via.placeholder.com/300x200/e5e7eb/6b7280?text=No+Image';
+                      })()}
                       alt={listing.title}
                       className="w-full h-48 object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = 'https://via.placeholder.com/300x200/e5e7eb/6b7280?text=Error';
+                      }}
                     />
                     <div className="p-4">
                       <h3 className="text-lg font-medium text-gray-900 mb-2">{listing.title}</h3>

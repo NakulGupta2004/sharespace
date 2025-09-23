@@ -93,6 +93,11 @@ const userSchema = new mongoose.Schema({
     default: 100,
     min: 0
   },
+  totalEarnings: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   role: {
     type: String,
     enum: ['student', 'admin', 'moderator'],
@@ -184,6 +189,12 @@ userSchema.methods.updateCredits = function(amount, operation = 'add') {
   } else if (operation === 'subtract') {
     this.credits = Math.max(0, this.credits - amount);
   }
+  return this.save();
+};
+
+// Method to add earnings from successful payments
+userSchema.methods.addEarnings = function(amount) {
+  this.totalEarnings += amount;
   return this.save();
 };
 
