@@ -130,7 +130,10 @@ io.on('connection', (socket) => {
   socket.on('send_message', async (data) => {
     try {
       const { receiverId, listingId, content } = data;
-      
+      if (!receiverId || !listingId || !content || content.trim().length === 0) {
+        throw new Error('Missing required fields: receiverId, listingId, or content');
+      }
+
       // Save message to database
       const Message = require('./models/Message');
       const message = new Message({
@@ -139,23 +142,23 @@ io.on('connection', (socket) => {
         listingId,
         content: content.trim()
       });
-      
+
       await message.save();
       await message.populate('senderId', 'name email');
-      
+
       // Emit to receiver
       socket.to(`user_${receiverId}`).emit('new_message', {
         message,
         listingId,
         senderId: socket.userId
       });
-      
+
       // Confirm message sent to sender
       socket.emit('message_sent', { message });
-      
+
     } catch (error) {
       console.error('Socket message error:', error);
-      socket.emit('message_error', { error: 'Failed to send message' });
+      socket.emit('message_error', { error: error.message || 'Failed to send message' });
     }
   });
 

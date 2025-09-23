@@ -1,37 +1,42 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  Search, 
-  Bell, 
-  User, 
-  Moon, 
-  Sun, 
-  Menu, 
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Search,
+  Bell,
+  User,
+  Moon,
+  Sun,
+  Menu,
   X,
   ShoppingCart,
   Plus,
-  Users
-} from 'lucide-react'
-import { useTheme } from '../../context/ThemeContext'
-import { useAuth } from '../../context/AuthContext'
+  Users,
+  MessageCircle
+} from 'lucide-react';
+import { ChatBox } from '../ui/ChatBox';
+import { ChatDialog } from '../ui/ChatDialog';
+import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Navbar() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isProfileOpen, setIsProfileOpen] = useState(false)
-  const { theme, setTheme } = useTheme()
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [selectedChatUser, setSelectedChatUser] = useState(null as null | any);
+  const { theme, setTheme } = useTheme();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   const toggleTheme = () => {
-    setTheme(theme === 'light' ? 'dark' : 'light')
-  }
+    setTheme(theme === 'light' ? 'dark' : 'light');
+  };
 
   const handleLogout = () => {
-    logout()
-    navigate('/')
-    setIsProfileOpen(false)
-  }
+    logout();
+    navigate('/');
+    setIsProfileOpen(false);
+  };
 
   return (
     <motion.nav
@@ -89,12 +94,59 @@ export default function Navbar() {
                   <span>List Item</span>
                 </Link>
 
+
+                {/* Message Icon */}
+                <button
+                  type="button"
+                  className="relative p-2 rounded-full hover:bg-blue-100 focus:outline-none"
+                  aria-label="Open chat"
+                  onClick={() => setIsChatOpen(true)}
+                >
+                  <MessageCircle className="w-6 h-6 text-blue-600" />
+                </button>
+
                 <button className="relative rounded-full p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white">
                   <Bell className="h-5 w-5" />
                   <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-xs text-white flex items-center justify-center">
                     3
                   </span>
                 </button>
+      {/* ChatBox Modal */}
+      <AnimatePresence>
+        {isChatOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          >
+            <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
+              <button
+                className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+                onClick={() => {
+                  setIsChatOpen(false);
+                  setSelectedChatUser(null);
+                }}
+                aria-label="Close chat"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <h2 className="text-lg font-bold mb-4">Chat</h2>
+              {!selectedChatUser ? (
+                <ChatBox
+                  onSelectUser={u => setSelectedChatUser(u)}
+                  onClose={() => setIsChatOpen(false)}
+                />
+              ) : (
+                <ChatDialog
+                  user={selectedChatUser}
+                  onClose={() => setSelectedChatUser(null)}
+                />
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
                 <div className="relative">
                   <button

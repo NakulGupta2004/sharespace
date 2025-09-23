@@ -38,6 +38,18 @@ router.post('/', authenticate, async (req, res) => {
 
     await message.save();
 
+    // Add each user to the other's contact list
+    const sender = await require('../models/User').findById(senderId);
+    const receiver = await require('../models/User').findById(receiverId);
+    if (sender && !sender.friendList.includes(receiverId)) {
+      sender.friendList.push(receiverId);
+      await sender.save();
+    }
+    if (receiver && !receiver.friendList.includes(senderId)) {
+      receiver.friendList.push(senderId);
+      await receiver.save();
+    }
+
     // Populate sender details
     await message.populate('senderId', 'name email');
 
@@ -48,7 +60,15 @@ router.post('/', authenticate, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Send message error:', error);
+      console.error('Send message error:', error);
+      if (error && error.stack) {
+        console.error('Error stack:', error.stack);
+      }
+      try {
+        console.error('Error JSON:', JSON.stringify(error));
+      } catch (e) {
+        console.error('Error could not be stringified:', e);
+      }
     res.status(500).json({
       success: false,
       message: 'Server error sending message'
@@ -64,27 +84,41 @@ router.get('/conversation/:userId/:listingId', authenticate, async (req, res) =>
     const { userId, listingId } = req.params;
     const currentUserId = req.user.id;
 
-    const messages = await Message.find({
-      listingId,
-      $or: [
-        { senderId: currentUserId, receiverId: userId },
-        { senderId: userId, receiverId: currentUserId }
-      ]
-    })
-    .populate('senderId', 'name email')
-    .populate('receiverId', 'name email')
-    .sort({ createdAt: 1 });
+    let query;
+    if (listingId === 'general') {
+      query = {
+        $or: [
+          { senderId: currentUserId, receiverId: userId },
+          { senderId: userId, receiverId: currentUserId }
+        ]
+      };
+    } else {
+      query = {
+        listingId,
+        $or: [
+          { senderId: currentUserId, receiverId: userId },
+          { senderId: userId, receiverId: currentUserId }
+        ]
+      };
+    }
+
+    const messages = await Message.find(query)
+      .populate('senderId', 'name email')
+      .populate('receiverId', 'name email')
+      .sort({ createdAt: 1 });
 
     // Mark messages as read
-    await Message.updateMany(
-      {
-        listingId,
-        senderId: userId,
-        receiverId: currentUserId,
-        isRead: false
-      },
-      { isRead: true }
-    );
+    if (listingId !== 'general') {
+      await Message.updateMany(
+        {
+          listingId,
+          senderId: userId,
+          receiverId: currentUserId,
+          isRead: false
+        },
+        { isRead: true }
+      );
+    }
 
     res.json({
       success: true,
