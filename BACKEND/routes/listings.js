@@ -403,4 +403,45 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// @route   GET /api/listings/categories/stats
+// @desc    Get category statistics
+// @access  Public
+router.get('/categories/stats', async (req, res) => {
+  try {
+    const categories = ['books', 'electronics', 'tools', 'lab-kits'];
+    const stats = await Promise.all(
+      categories.map(async (category) => {
+        const count = await Listing.countDocuments({ 
+          category: category, 
+          isActive: true, 
+          isDeleted: false,
+          'availability.status': 'available'
+        });
+        return { category, count };
+      })
+    );
+
+    // Get total count
+    const totalCount = await Listing.countDocuments({ 
+      isActive: true, 
+      isDeleted: false,
+      'availability.status': 'available'
+    });
+
+    res.json({
+      success: true,
+      categories: stats,
+      total: totalCount
+    });
+
+  } catch (error) {
+    console.error('Category stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching category statistics',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 module.exports = router;
