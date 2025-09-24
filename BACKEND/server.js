@@ -25,6 +25,11 @@ const { errorHandler } = require('./middleware/errorHandler');
 const { socketAuth } = require('./middleware/socketAuth');
 
 const app = express();
+// Enable CORS for frontend
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+}));
 const server = createServer(app);
 
 // Socket.IO setup
@@ -130,8 +135,14 @@ io.on('connection', (socket) => {
   socket.on('send_message', async (data) => {
     try {
       const { receiverId, listingId, content } = data;
-      if (!receiverId || !listingId || !content || content.trim().length === 0) {
-        throw new Error('Missing required fields: receiverId, listingId, or content');
+      if (!receiverId || !content || content.trim().length === 0) {
+        throw new Error('Missing required fields: receiverId or content');
+      }
+
+      // Accept 'general' as a valid listingId for general chat
+      let finalListingId = listingId;
+      if (listingId === 'general') {
+        finalListingId = undefined;
       }
 
       // Save message to database
@@ -139,7 +150,7 @@ io.on('connection', (socket) => {
       const message = new Message({
         senderId: socket.userId,
         receiverId,
-        listingId,
+        ...(finalListingId ? { listingId: finalListingId } : {}),
         content: content.trim()
       });
 

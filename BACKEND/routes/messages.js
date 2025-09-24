@@ -12,11 +12,12 @@ router.post('/', authenticate, async (req, res) => {
     const { receiverId, listingId, content } = req.body;
     const senderId = req.user.id;
 
+
     // Validate required fields
-    if (!receiverId || !listingId || !content) {
+    if (!receiverId || !content) {
       return res.status(400).json({
         success: false,
-        message: 'Receiver ID, listing ID, and content are required'
+        message: 'Receiver ID and content are required'
       });
     }
 
@@ -28,11 +29,17 @@ router.post('/', authenticate, async (req, res) => {
       });
     }
 
+    // Accept 'general' as a valid listingId for general chat
+    let finalListingId = listingId;
+    if (listingId === 'general') {
+      finalListingId = undefined;
+    }
+
     // Create message
     const message = new Message({
       senderId,
       receiverId,
-      listingId,
+      ...(finalListingId ? { listingId: finalListingId } : {}),
       content: content.trim()
     });
 

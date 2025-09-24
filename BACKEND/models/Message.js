@@ -14,7 +14,7 @@ const messageSchema = new mongoose.Schema({
   listingId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Listing',
-    required: true
+    required: false // allow general chat
   },
   content: {
     type: String,

@@ -52,12 +52,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-      // For now, skip the auth check since we don't have a /me endpoint yet
-      // const response = await axios.get('/api/auth/me')
-      // setUser(response.data.user)
+      const response = await axios.get('/api/auth/me')
+      setUser(response.data.user)
     } catch (error) {
       localStorage.removeItem('sharespace_token')
       delete axios.defaults.headers.common['Authorization']
+      setUser(null)
     } finally {
       setLoading(false)
     }
