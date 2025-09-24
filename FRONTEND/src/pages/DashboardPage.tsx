@@ -17,6 +17,7 @@ interface Booking {
     }>;
     category: string;
     pricing?: {
+      type?: 'rent' | 'sell' | 'barter' | 'free';
       basePrice?: number;
       currency?: string;
     };
@@ -36,6 +37,7 @@ interface Booking {
   paymentDate?: string;
   createdAt: string;
   notes?: string;
+  barterItem?: string;
 }
 
 interface Listing {
@@ -50,7 +52,7 @@ interface Listing {
   }>;
   image_urls?: string[];
   pricing?: {
-    type: string;
+    type?: 'rent' | 'sell' | 'barter' | 'free';
     basePrice?: number;
     currency?: string;
   };
@@ -74,6 +76,7 @@ interface DashboardStats {
 }
 
 const DashboardPage: React.FC = () => {
+  const [listingsTab, setListingsTab] = useState<'history' | 'all'>('history');
   const { user } = useAuth();
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -81,7 +84,7 @@ const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'bookings' | 'listings'>('bookings');
-  const [bookingFilter, setBookingFilter] = useState<'all' | 'rented' | 'listed'>('all');
+  const [bookingFilter, setBookingFilter] = useState<'all' | 'rented'>('all');
   const [stats, setStats] = useState<DashboardStats>({
     totalBookings: 0,
     activeBookings: 0,
@@ -103,6 +106,7 @@ const DashboardPage: React.FC = () => {
     if (activeTab === 'bookings') {
       fetchBookings();
     } else if (activeTab === 'listings') {
+      fetchReceivedBookings();
       fetchListings();
     }
   }, [user, navigate, activeTab, bookingFilter]);
@@ -111,21 +115,9 @@ const DashboardPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      let response;
-      
-      if (bookingFilter === 'rented' || bookingFilter === 'all') {
-        // Fetch bookings where user is the renter (items they've rented)
-        response = await axios.get(`http://localhost:5000/api/bookings/my`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
-        });
-      } else if (bookingFilter === 'listed') {
-        // Fetch bookings where user is the listing owner (their items that were booked)
-        response = await axios.get(`http://localhost:5000/api/bookings/received`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
-        });
-      }
-      
+      const response = await axios.get(`http://localhost:5000/api/bookings/my`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
+      });
       if (response && response.data.success) {
         const bookingsData = response.data.data || [];
         setBookings(bookingsData);
@@ -136,6 +128,28 @@ const DashboardPage: React.FC = () => {
     } catch (err: any) {
       console.error('Error fetching bookings:', err);
       setError(err.response?.data?.message || 'Failed to fetch bookings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch bookings received for user's listings
+  const fetchReceivedBookings = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await axios.get(`http://localhost:5000/api/bookings/received`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
+      });
+      if (response && response.data.success) {
+        const bookingsData = response.data.data || [];
+        setBookings(bookingsData);
+      } else {
+        setError('Failed to fetch received bookings');
+      }
+    } catch (err: any) {
+      console.error('Error fetching received bookings:', err);
+      setError(err.response?.data?.message || 'Failed to fetch received bookings');
     } finally {
       setLoading(false);
     }
@@ -388,16 +402,6 @@ const DashboardPage: React.FC = () => {
                   >
                     My Rentals
                   </button>
-                  <button
-                    onClick={() => setBookingFilter('listed')}
-                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                      bookingFilter === 'listed'
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    My Listings Booked
-                  </button>
                 </nav>
               </div>
             </div>
@@ -407,7 +411,6 @@ const DashboardPage: React.FC = () => {
               <h2 className="text-xl font-bold text-gray-900 mb-6">
                 {bookingFilter === 'all' && 'All Bookings'}
                 {bookingFilter === 'rented' && 'Items I\'ve Rented'}
-                {bookingFilter === 'listed' && 'Bookings for My Items'}
               </h2>
 
               {loading && (
@@ -433,7 +436,6 @@ const DashboardPage: React.FC = () => {
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No bookings found</h3>
                   <p className="text-gray-600 mb-4">
                     {bookingFilter === 'rented' && "You haven't rented any items yet."}
-                    {bookingFilter === 'listed' && "No one has booked your items yet."}
                     {bookingFilter === 'all' && "You don't have any bookings yet."}
                   </p>
                   <Button onClick={() => navigate('/')} variant="default">
@@ -483,9 +485,18 @@ const DashboardPage: React.FC = () => {
                             <p className="text-sm text-gray-600">
                               Category: {booking.listingId.category}
                             </p>
-                            <p className="text-sm text-gray-600">
-                              {formatDate(booking.startDate)} - {formatDate(booking.endDate)}
-                            </p>
+                            {/* Show dates for rent, else show type info */}
+                            {booking.listingId.pricing?.type === 'rent' ? (
+                              <p className="text-sm text-gray-600">
+                                {formatDate(booking.startDate)} - {formatDate(booking.endDate)}
+                              </p>
+                            ) : booking.listingId.pricing?.type === 'sell' ? (
+                              <p className="text-sm text-gray-600">Type: Buy</p>
+                            ) : booking.listingId.pricing?.type === 'barter' ? (
+                              <p className="text-sm text-gray-600">Type: Barter{booking.barterItem ? ` | Offer: ${booking.barterItem}` : ''}</p>
+                            ) : booking.listingId.pricing?.type === 'free' ? (
+                              <p className="text-sm text-gray-600">Type: Free</p>
+                            ) : null}
                             <p className="text-sm text-gray-600">
                               {booking.userId._id === user?.id ? (
                                 `Your rental from this owner`
@@ -511,25 +522,8 @@ const DashboardPage: React.FC = () => {
                             Booked {formatDate(booking.createdAt)}
                           </div>
                           
-                          {/* Accept/Reject buttons for pending bookings on received tab */}
-                          {bookingFilter === 'listed' && booking.status === 'pending' && (
-                            <div className="flex gap-2 mt-2">
-                              <Button
-                                onClick={() => updateBookingStatus(booking._id, 'confirmed')}
-                                variant="default"
-                                className="text-xs px-3 py-1 bg-green-600 hover:bg-green-700 text-white"
-                              >
-                                Accept
-                              </Button>
-                              <Button
-                                onClick={() => updateBookingStatus(booking._id, 'cancelled')}
-                                variant="outline"
-                                className="text-xs px-3 py-1 border-red-300 text-red-600 hover:bg-red-50"
-                              >
-                                Reject
-                              </Button>
-                            </div>
-                          )}
+                          {/* Accept/Reject buttons for pending bookings on received tab, for ALL pricing types */}
+                          {/* Accept/Reject buttons for pending bookings removed since 'listed' filter is gone */}
 
                           {/* Pay Now button for confirmed bookings when current user is the renter */}
                           {booking.status === 'confirmed' && 
@@ -595,80 +589,347 @@ const DashboardPage: React.FC = () => {
               </Button>
             </div>
 
-            {loading && (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-2 text-gray-600">Loading listings...</p>
+            {/* Horizontal category tabs for My Listings */}
+            <div className="mb-6">
+              <div className="border-b border-gray-200">
+                <nav className="-mb-px flex space-x-8">
+                  <button
+                    onClick={() => setListingsTab('history')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      listingsTab === 'history'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    Listed History
+                  </button>
+                  <button
+                    onClick={() => setListingsTab('all')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      listingsTab === 'all'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    All My Listings
+                  </button>
+                </nav>
               </div>
-            )}
+            </div>
 
-            {error && (
-              <div className="text-center py-8">
-                <div className="text-red-500 text-xl mb-2">⚠️</div>
-                <p className="text-red-600">{error}</p>
-                <Button onClick={fetchListings} variant="outline" className="mt-4">
-                  Try Again
-                </Button>
-              </div>
-            )}
-
-            {!loading && !error && listings.length === 0 && (
-              <div className="text-center py-8">
-                <div className="text-gray-400 text-6xl mb-4">📝</div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No listings found</h3>
-                <p className="text-gray-600 mb-4">You haven't created any listings yet.</p>
-                <Button onClick={() => navigate('/create-listing')} variant="default">
-                  Create Your First Listing
-                </Button>
-              </div>
-            )}
-
-            {!loading && !error && listings.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {listings.map((listing) => (
-                  <div key={listing._id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                    <img
-                      src={(() => {
-                        const imageUrl = (listing.images && listing.images[0]?.url) || (listing.image_urls && listing.image_urls[0]);
-                        // Check if URL is valid and not a base64 data URL without proper content
-                        if (imageUrl && imageUrl.startsWith('http') && !imageUrl.includes('data:;base64,=')) {
-                          return imageUrl;
-                        }
-                        return 'https://via.placeholder.com/300x200/e5e7eb/6b7280?text=No+Image';
-                      })()}
-                      alt={listing.title}
-                      className="w-full h-48 object-cover"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = 'https://via.placeholder.com/300x200/e5e7eb/6b7280?text=Error';
-                      }}
-                    />
-                    <div className="p-4">
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">{listing.title}</h3>
-                      <p className="text-sm text-gray-600 mb-2">Category: {listing.category}</p>
-                      <p className="text-sm text-gray-600 mb-2">Condition: {listing.condition}</p>
-                      {listing.pricing && (
-                        <p className="text-lg font-bold text-gray-900 mb-2">
-                          ₹{listing.pricing.basePrice}/day
-                        </p>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          listing.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {listing.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                        <Button 
-                          onClick={() => navigate(`/listing/${listing._id}`)}
-                          variant="outline"
-                          size="sm"
-                        >
-                          View Details
-                        </Button>
-                      </div>
+            {/* Category content */}
+            {listingsTab === 'history' && (
+              <>
+                {/* Pending bookings with confirmation */}
+                <div className="space-y-4 mb-8">
+                  {bookings.filter(b => b.listingId && b.listingId.ownerId === user.id && b.status === 'pending').length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="text-gray-400 text-6xl mb-4">📋</div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">No pending bookings for your listings.</h3>
+                      <p className="text-gray-600 mb-4">Items booked, given for free, or exchanged will appear here.</p>
                     </div>
+                  ) : (
+                    bookings.filter(b => b.listingId && b.listingId.ownerId === user.id && b.status === 'pending').map((booking) => (
+                      <div key={booking._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div className="flex items-start justify-between">
+                          {/* ...existing code for booking card... */}
+                          <div className="flex items-start space-x-4">
+                            {/* ...existing code for image and details... */}
+                            <img
+                              src={(() => {
+                                const imageUrl = booking.listingId.images && booking.listingId.images[0]?.url;
+                                if (imageUrl && imageUrl.startsWith('http') && !imageUrl.includes('data:;base64,=')) {
+                                  return imageUrl;
+                                }
+                                return 'https://via.placeholder.com/80x80/e5e7eb/6b7280?text=No+Image';
+                              })()}
+                              alt={booking.listingId.title}
+                              className="w-16 h-16 object-cover rounded-lg"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = 'https://via.placeholder.com/80x80/e5e7eb/6b7280?text=Error';
+                              }}
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2 mb-1">
+                                <h3 className="text-lg font-medium text-gray-900">
+                                  {booking.listingId.title}
+                                </h3>
+                                {/* Type indicator */}
+                                {booking.listingId.pricing?.type === 'rent' && (
+                                  <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                    Booked
+                                  </span>
+                                )}
+                                {booking.listingId.pricing?.type === 'free' && (
+                                  <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                                    Free
+                                  </span>
+                                )}
+                                {booking.listingId.pricing?.type === 'barter' && (
+                                  <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">
+                                    Exchanged
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-600">Category: {booking.listingId.category}</p>
+                              {/* Show dates for rent, else show type info */}
+                              {booking.listingId.pricing?.type === 'rent' ? (
+                                <p className="text-sm text-gray-600">
+                                  {formatDate(booking.startDate)} - {formatDate(booking.endDate)}
+                                </p>
+                              ) : booking.listingId.pricing?.type === 'sell' ? (
+                                <p className="text-sm text-gray-600">Type: Buy</p>
+                              ) : booking.listingId.pricing?.type === 'barter' ? (
+                                <p className="text-sm text-gray-600">Type: Barter{booking.barterItem ? ` | Offer: ${booking.barterItem}` : ''}</p>
+                              ) : booking.listingId.pricing?.type === 'free' ? (
+                                <p className="text-sm text-gray-600">Type: Free</p>
+                              ) : null}
+                              <p className="text-sm text-gray-600">
+                                Booked by: {booking.userId.name}
+                              </p>
+                              {booking.notes && (
+                                <p className="text-sm text-gray-600 mt-1">
+                                  Note: {booking.notes}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right min-w-[160px]">
+                            <div className="text-lg font-bold text-gray-900">
+                              {formatPrice(booking.totalAmount, booking.listingId.pricing?.currency || 'USD')}
+                            </div>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
+                              {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                            </span>
+                            <div className="text-xs text-gray-500 mt-1">
+                              Booked {formatDate(booking.createdAt)}
+                            </div>
+                            {/* Payment status indicator */}
+                            {booking.paymentStatus === 'paid' && (
+                              <div className="mt-2">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  ✓ Paid
+                                </span>
+                                {booking.paymentDate && (
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    Paid on {formatDate(booking.paymentDate)}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {/* User Confirmation for pending bookings */}
+                            <div className="mt-3">
+                              <div className="font-semibold text-sm text-gray-700 mb-1">User Confirmation</div>
+                              <div className="flex space-x-2">
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  onClick={() => updateBookingStatus(booking._id, 'confirmed')}
+                                >
+                                  Accept
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => updateBookingStatus(booking._id, 'cancelled')}
+                                >
+                                  Reject
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Listed History section */}
+                <div className="mt-10">
+                  <h3 className="text-lg font-semibold text-gray-700 mb-6">Listed History</h3>
+                  <div className="space-y-4">
+                    {bookings.filter(b => b.listingId && b.listingId.ownerId === user.id && b.status !== 'pending').length === 0 ? (
+                      <div className="text-center py-8">
+                        <div className="text-gray-400 text-6xl mb-4">📋</div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No history yet.</h3>
+                        <p className="text-gray-600 mb-4">Accepted, rejected, or completed bookings will appear here.</p>
+                      </div>
+                    ) : (
+                      bookings.filter(b => b.listingId && b.listingId.ownerId === user.id && b.status !== 'pending').map((booking) => (
+                        <div key={booking._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                          <div className="flex items-start justify-between">
+                            {/* ...existing code for booking card... */}
+                            <div className="flex items-start space-x-4">
+                              {/* ...existing code for image and details... */}
+                              <img
+                                src={(() => {
+                                  const imageUrl = booking.listingId.images && booking.listingId.images[0]?.url;
+                                  if (imageUrl && imageUrl.startsWith('http') && !imageUrl.includes('data:;base64,=')) {
+                                    return imageUrl;
+                                  }
+                                  return 'https://via.placeholder.com/80x80/e5e7eb/6b7280?text=No+Image';
+                                })()}
+                                alt={booking.listingId.title}
+                                className="w-16 h-16 object-cover rounded-lg"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.src = 'https://via.placeholder.com/80x80/e5e7eb/6b7280?text=Error';
+                                }}
+                              />
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-2 mb-1">
+                                  <h3 className="text-lg font-medium text-gray-900">
+                                    {booking.listingId.title}
+                                  </h3>
+                                  {/* Type indicator */}
+                                  {booking.listingId.pricing?.type === 'rent' && (
+                                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                      Booked
+                                    </span>
+                                  )}
+                                  {booking.listingId.pricing?.type === 'free' && (
+                                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                                      Free
+                                    </span>
+                                  )}
+                                  {booking.listingId.pricing?.type === 'barter' && (
+                                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">
+                                      Exchanged
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-sm text-gray-600">Category: {booking.listingId.category}</p>
+                                {/* Show dates for rent, else show type info */}
+                                {booking.listingId.pricing?.type === 'rent' ? (
+                                  <p className="text-sm text-gray-600">
+                                    {formatDate(booking.startDate)} - {formatDate(booking.endDate)}
+                                  </p>
+                                ) : booking.listingId.pricing?.type === 'sell' ? (
+                                  <p className="text-sm text-gray-600">Type: Buy</p>
+                                ) : booking.listingId.pricing?.type === 'barter' ? (
+                                  <p className="text-sm text-gray-600">Type: Barter{booking.barterItem ? ` | Offer: ${booking.barterItem}` : ''}</p>
+                                ) : booking.listingId.pricing?.type === 'free' ? (
+                                  <p className="text-sm text-gray-600">Type: Free</p>
+                                ) : null}
+                                <p className="text-sm text-gray-600">
+                                  Booked by: {booking.userId.name}
+                                </p>
+                                {booking.notes && (
+                                  <p className="text-sm text-gray-600 mt-1">
+                                    Note: {booking.notes}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right min-w-[160px]">
+                              <div className="text-lg font-bold text-gray-900">
+                                {formatPrice(booking.totalAmount, booking.listingId.pricing?.currency || 'USD')}
+                              </div>
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
+                                {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                              </span>
+                              <div className="text-xs text-gray-500 mt-1">
+                                Booked {formatDate(booking.createdAt)}
+                              </div>
+                              {/* Payment status indicator */}
+                              {booking.paymentStatus === 'paid' && (
+                                <div className="mt-2">
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    ✓ Paid
+                                  </span>
+                                  {booking.paymentDate && (
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      Paid on {formatDate(booking.paymentDate)}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
-                ))}
+                </div>
+              </>
+            )}
+
+            {listingsTab === 'all' && (
+              <div className="mt-10">
+                <h3 className="text-lg font-semibold text-gray-700 mb-6">All My Listings</h3>
+                {loading && (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="mt-2 text-gray-600">Loading listings...</p>
+                  </div>
+                )}
+                {error && (
+                  <div className="text-center py-8">
+                    <div className="text-red-500 text-xl mb-2">⚠️</div>
+                    <p className="text-red-600">{error}</p>
+                    <Button onClick={fetchListings} variant="outline" className="mt-4">
+                      Try Again
+                    </Button>
+                  </div>
+                )}
+                {!loading && !error && listings.length === 0 && (
+                  <div className="text-center py-8">
+                    <div className="text-gray-400 text-6xl mb-4">📝</div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No listings found</h3>
+                    <p className="text-gray-600 mb-4">You haven't created any listings yet.</p>
+                    <Button onClick={() => navigate('/create-listing')} variant="default">
+                      Create Your First Listing
+                    </Button>
+                  </div>
+                )}
+                {!loading && !error && listings.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {listings.map((listing) => (
+                      <div key={listing._id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                        <img
+                          src={(() => {
+                            const imageUrl = (listing.images && listing.images[0]?.url) || (listing.image_urls && listing.image_urls[0]);
+                            if (imageUrl && imageUrl.startsWith('http') && !imageUrl.includes('data:;base64,=')) {
+                              return imageUrl;
+                            }
+                            return 'https://via.placeholder.com/300x200/e5e7eb/6b7280?text=No+Image';
+                          })()}
+                          alt={listing.title}
+                          className="w-full h-48 object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = 'https://via.placeholder.com/300x200/e5e7eb/6b7280?text=Error';
+                          }}
+                        />
+                        <div className="p-4">
+                          <h3 className="text-lg font-medium text-gray-900 mb-2">{listing.title}</h3>
+                          <p className="text-sm text-gray-600 mb-2">Category: {listing.category}</p>
+                          <p className="text-sm text-gray-600 mb-2">Condition: {listing.condition}</p>
+                          {listing.pricing && (
+                            <p className="text-lg font-bold text-gray-900 mb-2">
+                              ₹{listing.pricing.basePrice}/day
+                            </p>
+                          )}
+                          <div className="flex items-center justify-between">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              listing.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }`}>
+                              {listing.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                            <Button 
+                              onClick={() => navigate(`/listing/${listing._id}`)}
+                              variant="outline"
+                              size="sm"
+                            >
+                              View Details
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </Card>

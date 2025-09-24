@@ -16,7 +16,9 @@ import {
   Eye,
   Users,
   BarChart3,
-  X
+  X,
+  ShoppingCart,
+  Gift
 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -156,39 +158,47 @@ export default function ListingDetailPage() {
     return totalAmount
   }
 
+  // Custom popup state
+  const [showApprovalPopup, setShowApprovalPopup] = useState(false);
   const handleBooking = async () => {
     if (!user) {
       navigate('/login')
       return
     }
 
-    if (!bookingData.startDate || !bookingData.endDate) {
-      alert('Please select both start and end dates')
-      return
-    }
-
-    setBookingLoading(true)
-    try {
-      const token = localStorage.getItem('sharespace_token')
-      const response = await axios.post('http://localhost:5000/api/bookings', {
-        listingId: id,
-        startDate: bookingData.startDate,
-        endDate: bookingData.endDate,
-        notes: bookingData.notes
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-
-      if (response.data.success) {
-        alert('Booking request sent successfully!')
-        setShowBookingModal(false)
-        setBookingData({ startDate: '', endDate: '', notes: '' })
+    // Only require dates for rent type
+    if (listing?.pricing?.type === 'rent') {
+      if (!bookingData.startDate || !bookingData.endDate) {
+        alert('Please select both start and end dates')
+        return
       }
-    } catch (error: any) {
-      console.error('Booking error:', error)
-      alert(error.response?.data?.message || 'Error creating booking')
-    } finally {
-      setBookingLoading(false)
+      setBookingLoading(true)
+      try {
+        const token = localStorage.getItem('sharespace_token')
+        const response = await axios.post('http://localhost:5000/api/bookings', {
+          listingId: id,
+          startDate: bookingData.startDate,
+          endDate: bookingData.endDate,
+          notes: bookingData.notes
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (response.data.success) {
+          alert('Booking request sent successfully!')
+          setShowBookingModal(false)
+          setBookingData({ startDate: '', endDate: '', notes: '' })
+        }
+      } catch (error: any) {
+        console.error('Booking error:', error)
+        alert(error.response?.data?.message || 'Error creating booking')
+      } finally {
+        setBookingLoading(false)
+      }
+    } else {
+      // For sell, barter, free: show custom approval popup
+      setShowBookingModal(false);
+      setShowApprovalPopup(true);
+      setTimeout(() => setShowApprovalPopup(false), 3500);
     }
   }
 
@@ -476,13 +486,44 @@ export default function ListingDetailPage() {
                 )}
               </div>
               
-              <button
-                onClick={() => setShowBookingModal(true)}
-                className="w-full py-4 bg-gradient-to-r from-blue-600 to-green-500 text-white font-medium rounded-xl flex justify-center items-center mb-4 hover:from-blue-700 hover:to-green-600 transition-all"
-              >
-                <Calendar className="h-5 w-5 mr-2" />
-                Book Now
-              </button>
+
+              {/* Dynamic action button based on pricing type */}
+              {listing.pricing?.type === 'rent' && (
+                <button
+                  onClick={() => setShowBookingModal(true)}
+                  className="w-full py-4 bg-gradient-to-r from-blue-600 to-green-500 text-white font-medium rounded-xl flex justify-center items-center mb-4 hover:from-blue-700 hover:to-green-600 transition-all"
+                >
+                  <Calendar className="h-5 w-5 mr-2" />
+                  Book Now
+                </button>
+              )}
+              {listing.pricing?.type === 'sell' && (
+                <button
+                  onClick={() => setShowBookingModal(true)}
+                  className="w-full py-4 bg-gradient-to-r from-green-600 to-blue-500 text-white font-medium rounded-xl flex justify-center items-center mb-4 hover:from-green-700 hover:to-blue-600 transition-all"
+                >
+                  <ShoppingCart className="h-5 w-5 mr-2" />
+                  Buy Now
+                </button>
+              )}
+              {listing.pricing?.type === 'barter' && (
+                <button
+                  onClick={() => setShowBookingModal(true)}
+                  className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white font-medium rounded-xl flex justify-center items-center mb-4 hover:from-purple-700 hover:to-pink-600 transition-all"
+                >
+                  <BarChart3 className="h-5 w-5 mr-2" />
+                  Barter Now
+                </button>
+              )}
+              {listing.pricing?.type === 'free' && (
+                <button
+                  onClick={() => setShowBookingModal(true)}
+                  className="w-full py-4 bg-gradient-to-r from-gray-600 to-green-500 text-white font-medium rounded-xl flex justify-center items-center mb-4 hover:from-gray-700 hover:to-green-600 transition-all"
+                >
+                  <Gift className="h-5 w-5 mr-2" />
+                  Get Now
+                </button>
+              )}
               
               <button
                 onClick={handleAddOwnerToFriends}
@@ -602,8 +643,8 @@ export default function ListingDetailPage() {
         </div>
       </div>
 
-      {/* Booking Modal */}
-      {showBookingModal && (
+      {/* Modal logic for each pricing type */}
+      {showBookingModal && listing.pricing?.type === 'rent' && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
             <div className="flex justify-between items-center mb-4">
@@ -615,12 +656,9 @@ export default function ListingDetailPage() {
                 <X className="h-6 w-6" />
               </button>
             </div>
-            
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Start Date
-                </label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Start Date</label>
                 <input
                   type="date"
                   value={bookingData.startDate}
@@ -629,11 +667,8 @@ export default function ListingDetailPage() {
                   min={new Date().toISOString().split('T')[0]}
                 />
               </div>
-              
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  End Date
-                </label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">End Date</label>
                 <input
                   type="date"
                   value={bookingData.endDate}
@@ -642,11 +677,8 @@ export default function ListingDetailPage() {
                   min={bookingData.startDate || new Date().toISOString().split('T')[0]}
                 />
               </div>
-              
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Notes (Optional)
-                </label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Notes (Optional)</label>
                 <textarea
                   value={bookingData.notes}
                   onChange={(e) => setBookingData(prev => ({ ...prev, notes: e.target.value }))}
@@ -655,7 +687,6 @@ export default function ListingDetailPage() {
                   placeholder="Any special requirements or notes..."
                 />
               </div>
-              
               {bookingData.startDate && bookingData.endDate && (
                 <div className="bg-gray-700 p-3 rounded-md">
                   <div className="flex justify-between text-gray-300">
@@ -667,7 +698,6 @@ export default function ListingDetailPage() {
                   </div>
                 </div>
               )}
-              
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={() => setShowBookingModal(false)}
@@ -687,8 +717,80 @@ export default function ListingDetailPage() {
           </div>
         </div>
       )}
+      {showBookingModal && listing.pricing?.type === 'sell' && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-white">Buy {listing?.title}</h3>
+              <button onClick={() => setShowBookingModal(false)} className="text-gray-400 hover:text-white"><X className="h-6 w-6" /></button>
+            </div>
+            <div className="space-y-4">
+              <div className="text-lg text-white">Price: {formatPrice(listing?.pricing?.sellPrice || 0)}</div>
+              <div className="flex gap-3 mt-6">
+                <button onClick={() => setShowBookingModal(false)} className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors">Cancel</button>
+                <button onClick={handleBooking} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">Buy Now</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showBookingModal && listing.pricing?.type === 'barter' && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-white">Barter for {listing?.title}</h3>
+              <button onClick={() => setShowBookingModal(false)} className="text-gray-400 hover:text-white"><X className="h-6 w-6" /></button>
+            </div>
+            <div className="space-y-4">
+              <div className="text-lg text-white">Propose your item to barter with the owner.</div>
+              <input type="text" className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white" placeholder="Describe your item..." />
+              <div className="flex gap-3 mt-6">
+                <button onClick={() => setShowBookingModal(false)} className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors">Cancel</button>
+                <button onClick={handleBooking} className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors">Send Barter Request</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showBookingModal && listing.pricing?.type === 'free' && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-white">Claim {listing?.title}</h3>
+              <button onClick={() => setShowBookingModal(false)} className="text-gray-400 hover:text-white"><X className="h-6 w-6" /></button>
+            </div>
+            <div className="space-y-4">
+              <div className="text-lg text-white">This item is free! Click below to claim it.</div>
+              <div className="flex gap-3 mt-6">
+                <button onClick={() => setShowBookingModal(false)} className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors">Cancel</button>
+                <button onClick={handleBooking} className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">Claim Now</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
 
+    {/* Approval Popup */}
+    {showApprovalPopup && (
+      <div
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+        onClick={() => setShowApprovalPopup(false)}
+      >
+        <div className="bg-gray-900 border border-blue-600 rounded-2xl shadow-2xl px-8 py-6 flex flex-col items-center animate-fade-in">
+          <svg width="48" height="48" fill="none" className="mb-3">
+            <circle cx="24" cy="24" r="22" stroke="#3B82F6" strokeWidth="4" fill="#1E293B" />
+            <path d="M16 24l6 6 10-10" stroke="#22C55E" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <h2 className="text-2xl font-bold text-blue-500 mb-2">Waiting for Buyer Approval</h2>
+          <p className="text-gray-300 mb-4 text-center">Your request has been sent. Please wait for the seller to approve your purchase or claim.</p>
+          <button
+            className="mt-2 px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all"
+            onClick={() => setShowApprovalPopup(false)}
+          >Close</button>
+        </div>
+      </div>
+    )}
     </div>
   )
 }

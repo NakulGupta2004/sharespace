@@ -25,6 +25,7 @@ router.post('/', authenticate, async (req, res) => {
     // Get listing details
     const listing = await Listing.findById(listingId);
     if (!listing) {
+      console.error('Booking creation failed: Listing not found', { listingId });
       return res.status(404).json({
         success: false,
         message: 'Listing not found'
@@ -33,6 +34,7 @@ router.post('/', authenticate, async (req, res) => {
 
     // Check if user is trying to book their own listing
     if (listing.ownerId.toString() === userId) {
+      console.error('Booking creation failed: User tried to book own listing', { listingId, ownerId: listing.ownerId, userId });
       return res.status(400).json({
         success: false,
         message: 'Cannot book your own listing'
@@ -70,23 +72,7 @@ router.post('/', authenticate, async (req, res) => {
           message: 'End date must be after start date'
         });
       }
-      // Check for booking conflicts
-      const conflictingBooking = await Booking.findOne({
-        listingId,
-        status: { $in: ['pending', 'confirmed'] },
-        $or: [
-          {
-            startDate: { $lte: end },
-            endDate: { $gte: start }
-          }
-        ]
-      });
-      if (conflictingBooking) {
-        return res.status(400).json({
-          success: false,
-          message: 'Listing is already booked for the selected dates'
-        });
-      }
+      // Booking conflict check removed: allow multiple bookings for same dates
       // Calculate total amount
       const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
       const dailyRate = listing.pricing?.dailyRate || 0;
@@ -105,6 +91,13 @@ router.post('/', authenticate, async (req, res) => {
     // Create booking
     const booking = new Booking(bookingData);
     await booking.save();
+    console.log('Booking created:', {
+      bookingId: booking._id,
+      status: booking.status,
+      listingId: booking.listingId,
+      ownerId: listing.ownerId,
+      userId: booking.userId
+    });
 
     // Populate user and listing details
     await booking.populate([
@@ -173,7 +166,7 @@ router.get('/received', authenticate, async (req, res) => {
     const userListings = await Listing.find({ ownerId: req.user.userId }).select('_id');
     const listingIds = userListings.map(listing => listing._id);
     
-    console.log('User has listings:', listingIds.length, 'listings');
+      console.log('User has listings:', listingIds.length, 'listingIds:', listingIds);
 
     let query = { listingId: { $in: listingIds } };
 
@@ -182,12 +175,11 @@ router.get('/received', authenticate, async (req, res) => {
       query.status = filter;
     }
 
-    const bookings = await Booking.find(query)
-      .populate('listingId', 'title images category pricing location ownerId')
-      .populate('userId', 'name email')
-      .sort({ createdAt: -1 });
-
-    console.log('Found bookings for user listings:', bookings.length);
+      const bookings = await Booking.find(query)
+        .populate('listingId', 'title images category pricing location ownerId')
+        .populate('userId', 'name email')
+        .sort({ createdAt: -1 });
+      console.log('Found bookings for user listings:', bookings.length, 'bookings:', bookings.map(b => ({ id: b._id, status: b.status, listingId: b.listingId._id })));
 
     res.json({
       success: true,
