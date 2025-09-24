@@ -145,14 +145,12 @@ const DashboardPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      const response = await axios.get(`http://localhost:5000/api/listings`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` },
-        params: { ownerId: user?.id }
+      // Fetch only the current user's listings
+      const response = await axios.get(`http://localhost:5000/api/listings/my`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
       });
-      
       if (response.data.success) {
-        const listingsData = response.data.listings || [];
+        const listingsData = response.data.data || [];
         setListings(listingsData);
       } else {
         setError(response.data.message || 'Failed to fetch listings');

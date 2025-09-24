@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
   Bell,
-  User,
   Moon,
   Sun,
   Menu,
@@ -14,19 +14,73 @@ import {
   Users,
   MessageCircle
 } from 'lucide-react';
-import { ChatBox } from '../ui/ChatBox';
+// import { ChatBox } from '../ui/ChatBox'; // Unused
 import { ChatDialog } from '../ui/ChatDialog';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [selectedChatUser, setSelectedChatUser] = useState(null as null | any);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  // Use a more specific type for contacts if possible
+  type Contact = { _id: string; name: string; email: string; avatar_url?: string };
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(false);
   const { theme, setTheme } = useTheme();
   const { user, logout } = useAuth();
+  const { socket } = useSocket();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isChatOpen) return;
+    setLoading(true);
+    axios.get('http://localhost:5000/api/users/contacts', {
+      headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
+    })
+      .then(res => {
+        setContacts(res.data.contacts || []);
+      })
+      .catch(() => setContacts([]))
+      .finally(() => setLoading(false));
+  }, [isChatOpen]);
+
+  const filteredContacts = contacts.filter(u =>
+    u._id !== user?._id &&
+    (u.name.toLowerCase().includes(search.toLowerCase()) ||
+     u.email.toLowerCase().includes(search.toLowerCase()))
+  );
+  // Listen for socket notifications
+  useEffect(() => {
+    if (!socket || !user) return;
+    const handleNewBooking = (data: any) => {
+      setNotifications(prev => [{
+        type: 'booking',
+        message: `New booking request for your item: ${data.listingTitle || 'Item'}`,
+        time: new Date().toLocaleTimeString(),
+        ...data
+      }, ...prev]);
+    };
+    const handleNewMessage = (data: any) => {
+      setNotifications(prev => [{
+        type: 'message',
+        message: `New message from ${data.message?.senderId?.name || 'User'}: ${data.message?.content}`,
+        time: new Date().toLocaleTimeString(),
+        ...data
+      }, ...prev]);
+    };
+    socket.on('new_booking_request', handleNewBooking);
+    socket.on('new_message', handleNewMessage);
+    return () => {
+      socket.off('new_booking_request', handleNewBooking);
+      socket.off('new_message', handleNewMessage);
+    };
+  }, [socket, user]);
 
   const toggleTheme = () => {
     setTheme(theme === 'light' ? 'dark' : 'light');
@@ -105,48 +159,117 @@ export default function Navbar() {
                   <MessageCircle className="w-6 h-6 text-blue-600" />
                 </button>
 
-                <button className="relative rounded-full p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white">
-                  <Bell className="h-5 w-5" />
-                  <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-xs text-white flex items-center justify-center">
-                    3
-                  </span>
-                </button>
-      {/* ChatBox Modal */}
-      <AnimatePresence>
-        {isChatOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-          >
-            <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
-              <button
-                className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-                onClick={() => {
-                  setIsChatOpen(false);
-                  setSelectedChatUser(null);
-                }}
-                aria-label="Close chat"
-              >
-                <X className="w-5 h-5" />
-              </button>
-              <h2 className="text-lg font-bold mb-4">Chat</h2>
-              {!selectedChatUser ? (
-                <ChatBox
-                  onSelectUser={u => setSelectedChatUser(u)}
-                  onClose={() => setIsChatOpen(false)}
+                <div className="relative">
+                  <button
+                    className="relative rounded-full p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+                    onClick={() => setShowNotifications(!showNotifications)}
+                  >
+                    <Bell className="h-5 w-5" />
+                    {notifications.length > 0 && (
+                      <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-xs text-white flex items-center justify-center">
+                        {notifications.length}
+                      </span>
+                    )}
+                  </button>
+                  {showNotifications && (
+                    <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg z-50 border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+                      <div className="p-4">
+                        <h3 className="font-bold text-lg mb-2">Notifications</h3>
+                        {notifications.length === 0 ? (
+                          <div className="text-gray-500">No notifications</div>
+                        ) : (
+                          <ul className="space-y-2 max-h-64 overflow-y-auto">
+                            {notifications.slice(0, 10).map((n, idx) => (
+                              <li
+                                key={idx}
+                                className={`border-b pb-2 last:border-b-0 ${n.type === 'message' ? 'cursor-pointer hover:bg-blue-50' : ''}`}
+                                onClick={() => {
+                                  if (n.type === 'message' && n.message && typeof n.message === 'object') {
+                                    setSelectedChatUser({
+                                      _id: n.message.senderId?._id || n.message.senderId?.id,
+                                      name: n.message.senderId?.name,
+                                      email: n.message.senderId?.email,
+                                      avatar_url: n.message.senderId?.avatar_url
+                                    });
+                                    setIsChatOpen(true);
+                                    setShowNotifications(false);
+                                  }
+                                }}
+                              >
+                                <div className="font-medium text-blue-600">{n.type === 'booking' ? 'Booking' : 'Message'}</div>
+                                <div className="text-gray-800 dark:text-gray-200">
+                                  {n.type === 'message' && n.message && typeof n.message === 'object'
+                                    ? `${n.message.senderId?.name || 'User'}: ${n.message.content}`
+                                    : (typeof n.message === 'string' ? n.message : JSON.stringify(n.message))}
+                                </div>
+                                <div className="text-xs text-gray-400 mt-1">{n.time}</div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        <button
+                          className="mt-4 w-full bg-blue-500 text-white rounded-lg py-2 text-sm font-semibold hover:bg-blue-600"
+                          onClick={() => { setNotifications([]); setShowNotifications(false); }}
+                        >Clear Notifications</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+      {/* Integrated ChatBox in Navbar */}
+      {isChatOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 backdrop-blur-sm" style={{ marginTop: '5rem' }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-auto p-0 relative flex flex-col border border-gray-200" style={{ minHeight: 500, maxHeight: '80vh', overflow: 'auto' }}>
+            <button onClick={() => { setIsChatOpen(false); setSelectedChatUser(null); }} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 transition"><span className="sr-only">Close</span>✕</button>
+            <div className="flex h-full" style={{ minHeight: 500 }}>
+              {/* Contacts List */}
+              <div className="w-1/3 border-r bg-gray-50 flex flex-col">
+                <h2 className="text-xl font-bold p-4 text-blue-700 border-b">Contacts</h2>
+                <input
+                  type="text"
+                  placeholder="Search contacts..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="mx-4 my-2 rounded-lg border px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 />
-              ) : (
-                <ChatDialog
-                  user={selectedChatUser}
-                  onClose={() => setSelectedChatUser(null)}
-                />
-              )}
+                {loading ? (
+                  <div className="text-center text-gray-500 py-8">Loading contacts...</div>
+                ) : (
+                  <ul className="divide-y divide-gray-100 overflow-y-auto flex-1">
+                    {filteredContacts.length === 0 && (
+                      <li className="py-8 text-center text-gray-400">No contacts found</li>
+                    )}
+                    {filteredContacts.map(u => (
+                      <li key={u._id} className={`flex items-center py-4 px-4 hover:bg-blue-100 cursor-pointer transition ${selectedChatUser?._id === u._id ? 'bg-blue-50' : ''}`} onClick={() => setSelectedChatUser(u)}>
+                        <img src={u.avatar_url && u.avatar_url.trim() !== '' ? u.avatar_url : `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || 'User')}&background=random`} alt={u.name || 'User'} className="h-10 w-10 rounded-full mr-3 border border-gray-200" />
+                        <div className="flex-1">
+                          <div className="font-semibold text-gray-900">{u.name}</div>
+                          <div className="text-xs text-gray-500">{u.email}</div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {/* Chat Area */}
+              <div className="w-2/3 flex flex-col items-center justify-center">
+                {selectedChatUser ? (
+                  <div className="w-full h-full flex flex-col justify-center items-center">
+                    <ChatDialog user={selectedChatUser} onClose={() => setSelectedChatUser(null)} />
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                    <svg viewBox="0 0 24 24" fill="none" className="w-16 h-16 mb-4">
+                      <path d="M21 15.5V6.5A2.5 2.5 0 0 0 18.5 4h-13A2.5 2.5 0 0 0 3 6.5v9A2.5 2.5 0 0 0 5.5 18H7v2.5a.5.5 0 0 0 .8.4l3.7-2.9h6A2.5 2.5 0 0 0 21 15.5Z" stroke="#60A5FA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <div className="text-lg">Select a contact to start chatting</div>
+                  </div>
+                )}
+              </div>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+        </div>
+      )}
 
                 <div className="relative">
                   <button

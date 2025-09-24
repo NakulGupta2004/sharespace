@@ -12,7 +12,7 @@ interface User {
   avatar_url?: string;
 }
 
-export const ChatBox: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+export const ChatBox: React.FC<{ onClose: () => void; onSelectUser?: (user: User) => void }> = ({ onClose, onSelectUser }) => {
   const { user } = useAuth();
   const [contacts, setContacts] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -39,7 +39,7 @@ export const ChatBox: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black bg-opacity-50" style={{ marginTop: '5rem' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-auto p-0 relative flex flex-col border border-gray-200" style={{ minHeight: 500 }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-auto p-0 relative flex flex-col border border-gray-200" style={{ minHeight: 500, maxHeight: '80vh', overflow: 'auto' }}>
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 transition"><span className="sr-only">Close</span>✕</button>
         <div className="flex h-full" style={{ minHeight: 500 }}>
           {/* Contacts List */}
@@ -60,7 +60,10 @@ export const ChatBox: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                   <li className="py-8 text-center text-gray-400">No contacts found</li>
                 )}
                 {filteredContacts.map(u => (
-                  <li key={u._id} className={`flex items-center py-4 px-4 hover:bg-blue-100 cursor-pointer transition ${selectedUser?._id === u._id ? 'bg-blue-50' : ''}`} onClick={() => setSelectedUser(u)}>
+                  <li key={u._id} className={`flex items-center py-4 px-4 hover:bg-blue-100 cursor-pointer transition ${selectedUser?._id === u._id ? 'bg-blue-50' : ''}`} onClick={() => {
+                    setSelectedUser(u);
+                    if (onSelectUser) onSelectUser(u);
+                  }}>
                     <img src={u.avatar_url && u.avatar_url.trim() !== '' ? u.avatar_url : `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || 'User')}&background=random`} alt={u.name || 'User'} className="h-10 w-10 rounded-full mr-3 border border-gray-200" />
                     <div className="flex-1">
                       <div className="font-semibold text-gray-900">{u.name}</div>
