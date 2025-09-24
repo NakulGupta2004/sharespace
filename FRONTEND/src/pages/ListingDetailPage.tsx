@@ -114,7 +114,8 @@ export default function ListingDetailPage() {
   const [bookingData, setBookingData] = useState({
     startDate: '',
     endDate: '',
-    notes: ''
+    notes: '',
+    barterItem: ''
   })
   const [bookingLoading, setBookingLoading] = useState(false)
 
@@ -166,39 +167,41 @@ export default function ListingDetailPage() {
       return
     }
 
-    // Only require dates for rent type
+    // Prepare booking payload
+    const payload: any = {
+      listingId: id,
+      notes: bookingData.notes
+    };
     if (listing?.pricing?.type === 'rent') {
       if (!bookingData.startDate || !bookingData.endDate) {
         alert('Please select both start and end dates')
         return
       }
-      setBookingLoading(true)
-      try {
-        const token = localStorage.getItem('sharespace_token')
-        const response = await axios.post('http://localhost:5000/api/bookings', {
-          listingId: id,
-          startDate: bookingData.startDate,
-          endDate: bookingData.endDate,
-          notes: bookingData.notes
-        }, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        if (response.data.success) {
-          alert('Booking request sent successfully!')
-          setShowBookingModal(false)
-          setBookingData({ startDate: '', endDate: '', notes: '' })
-        }
-      } catch (error: any) {
-        console.error('Booking error:', error)
-        alert(error.response?.data?.message || 'Error creating booking')
-      } finally {
-        setBookingLoading(false)
+      payload.startDate = bookingData.startDate;
+      payload.endDate = bookingData.endDate;
+    }
+    if (listing?.pricing?.type === 'barter') {
+      if (bookingData.barterItem) payload.barterItem = bookingData.barterItem;
+    }
+
+    setBookingLoading(true);
+    try {
+      const token = localStorage.getItem('sharespace_token');
+      const response = await axios.post('http://localhost:5000/api/bookings', payload, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        alert('Booking request sent successfully!');
+        setShowBookingModal(false);
+        setBookingData({ startDate: '', endDate: '', notes: '' });
+        setShowApprovalPopup(true);
+        setTimeout(() => setShowApprovalPopup(false), 3500);
       }
-    } else {
-      // For sell, barter, free: show custom approval popup
-      setShowBookingModal(false);
-      setShowApprovalPopup(true);
-      setTimeout(() => setShowApprovalPopup(false), 3500);
+    } catch (error: any) {
+      console.error('Booking error:', error);
+      alert(error.response?.data?.message || 'Error creating booking');
+    } finally {
+      setBookingLoading(false);
     }
   }
 
