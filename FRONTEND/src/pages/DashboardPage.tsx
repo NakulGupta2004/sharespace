@@ -263,9 +263,9 @@ const DashboardPage: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-yellow-100 text-yellow-800 dark:text-black';
       case 'confirmed':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 dark:text-black';
       case 'cancelled':
         return 'bg-red-100 text-red-800';
       case 'completed':
@@ -280,12 +280,12 @@ const DashboardPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+  <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-2">Welcome back, {user.name}!</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
+          <p className="text-gray-600 dark:text-gray-300 mt-2">Welcome back, {user.name}!</p>
         </div>
 
         {/* Stats Cards */}
@@ -298,8 +298,8 @@ const DashboardPage: React.FC = () => {
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Bookings</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.totalBookings}</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Total Bookings</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.totalBookings}</p>
               </div>
             </div>
           </Card>
@@ -312,8 +312,8 @@ const DashboardPage: React.FC = () => {
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Active Bookings</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.activeBookings}</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Active Bookings</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.activeBookings}</p>
               </div>
             </div>
           </Card>
@@ -326,8 +326,8 @@ const DashboardPage: React.FC = () => {
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.pendingBookings}</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Pending</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.pendingBookings}</p>
               </div>
             </div>
           </Card>
@@ -340,8 +340,8 @@ const DashboardPage: React.FC = () => {
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Earnings</p>
-                <p className="text-2xl font-bold text-gray-900">₹{userEarnings.toFixed(2)}</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Total Earnings</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">₹{userEarnings.toFixed(2)}</p>
               </div>
             </div>
           </Card>
@@ -409,8 +409,10 @@ const DashboardPage: React.FC = () => {
             {/* Bookings List */}
             <Card className="p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-6">
-                {bookingFilter === 'all' && 'All Bookings'}
-                {bookingFilter === 'rented' && 'Items I\'ve Rented'}
+                <span className="dark:text-gray-100">
+                  {bookingFilter === 'all' && 'All Bookings'}
+                  {bookingFilter === 'rented' && "Items I've Rented"}
+                </span>
               </h2>
 
               {loading && (
@@ -433,10 +435,12 @@ const DashboardPage: React.FC = () => {
               {!loading && !error && bookings.length === 0 && (
                 <div className="text-center py-8">
                   <div className="text-gray-400 text-6xl mb-4">📋</div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No bookings found</h3>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No bookings found</h3>
                   <p className="text-gray-600 mb-4">
-                    {bookingFilter === 'rented' && "You haven't rented any items yet."}
-                    {bookingFilter === 'all' && "You don't have any bookings yet."}
+                    <span className="dark:text-gray-300">
+                      {bookingFilter === 'rented' && "You haven't rented any items yet."}
+                      {bookingFilter === 'all' && "You don't have any bookings yet."}
+                    </span>
                   </p>
                   <Button onClick={() => navigate('/')} variant="default">
                     Browse Items
@@ -469,7 +473,7 @@ const DashboardPage: React.FC = () => {
                           <div className="flex-1">
                             <div className="flex items-center space-x-2 mb-1">
                               <h3 className="text-lg font-medium text-gray-900">
-                                {booking.listingId.title}
+                                <span className="dark:text-gray-100">{booking.listingId.title}</span>
                               </h3>
                               {/* Role indicator */}
                               {booking.userId._id === user?.id ? (
@@ -513,13 +517,13 @@ const DashboardPage: React.FC = () => {
                         </div>
                         <div className="text-right">
                           <div className="text-lg font-bold text-gray-900">
-                            {formatPrice(booking.totalAmount, booking.listingId.pricing?.currency || 'USD')}
+                            <span className="dark:text-gray-100">{formatPrice(booking.totalAmount, booking.listingId.pricing?.currency || 'USD')}</span>
                           </div>
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
-                            {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                            <span className={booking.status === 'confirmed' ? 'dark:text-black font-bold' : 'dark:text-gray-100'}>{booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}</span>
                           </span>
                           <div className="text-xs text-gray-500 mt-1">
-                            Booked {formatDate(booking.createdAt)}
+                            <span className="dark:text-gray-400">Booked {formatDate(booking.createdAt)}</span>
                           </div>
                           
                           {/* Accept/Reject buttons for pending bookings on received tab, for ALL pricing types */}
@@ -560,11 +564,11 @@ const DashboardPage: React.FC = () => {
                           {booking.paymentStatus === 'paid' && (
                             <div className="mt-2">
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                ✓ Paid
+                                <span className="dark:text-green-300">✓ Paid</span>
                               </span>
                               {booking.paymentDate && (
                                 <div className="text-xs text-gray-500 mt-1">
-                                  Paid on {formatDate(booking.paymentDate)}
+                                  <span className="dark:text-gray-400">Paid on {formatDate(booking.paymentDate)}</span>
                                 </div>
                               )}
                             </div>
@@ -583,7 +587,7 @@ const DashboardPage: React.FC = () => {
         {activeTab === 'listings' && (
           <Card className="p-6">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-900">My Listings</h2>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">My Listings</h2>
               <Button onClick={() => navigate('/create-listing')} variant="default">
                 Create New Listing
               </Button>
@@ -658,22 +662,22 @@ const DashboardPage: React.FC = () => {
                                 {/* Type indicator for all types */}
                                 {booking.listingId.pricing?.type === 'rent' && (
                                   <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                                    Booked
+                                    <span className="dark:text-black font-bold">Booked</span>
                                   </span>
                                 )}
                                 {booking.listingId.pricing?.type === 'free' && (
                                   <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                                    Free
+                                    <span className="dark:text-black font-bold">Free</span>
                                   </span>
                                 )}
                                 {booking.listingId.pricing?.type === 'barter' && (
                                   <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">
-                                    Exchanged
+                                    <span className="dark:text-black font-bold">Exchanged</span>
                                   </span>
                                 )}
                                 {booking.listingId.pricing?.type === 'sell' && (
                                   <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-pink-100 text-pink-800 rounded-full">
-                                    Buy
+                                    <span className="dark:text-black font-bold">Buy</span>
                                   </span>
                                 )}
                               </div>
@@ -705,7 +709,7 @@ const DashboardPage: React.FC = () => {
                               {formatPrice(booking.totalAmount, booking.listingId.pricing?.currency || 'USD')}
                             </div>
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
-                              {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                              <span className="dark:text-black font-bold">{booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}</span>
                             </span>
                             <div className="text-xs text-gray-500 mt-1">
                               Booked {formatDate(booking.createdAt)}
@@ -714,7 +718,7 @@ const DashboardPage: React.FC = () => {
                             {booking.paymentStatus === 'paid' && (
                               <div className="mt-2">
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                  ✓ Paid
+                                  <span className="dark:text-black font-bold">✓ Paid</span>
                                 </span>
                                 {booking.paymentDate && (
                                   <div className="text-xs text-gray-500 mt-1">
@@ -752,7 +756,7 @@ const DashboardPage: React.FC = () => {
 
                 {/* Listed History section - show all items listed by the seller */}
                 <div className="mt-10">
-                  <h3 className="text-lg font-semibold text-gray-700 mb-6">Listed History</h3>
+                  <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-100 mb-6">Listed History</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {listings.length === 0 ? (
                       <div className="text-center py-8 col-span-3">
@@ -834,8 +838,8 @@ const DashboardPage: React.FC = () => {
                 {!loading && !error && listings.length === 0 && (
                   <div className="text-center py-8">
                     <div className="text-gray-400 text-6xl mb-4">📝</div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No listings found</h3>
-                    <p className="text-gray-600 mb-4">You haven't created any listings yet.</p>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No listings found</h3>
+                    <p className="text-gray-600 dark:text-gray-300 mb-4">You haven't created any listings yet.</p>
                     <Button onClick={() => navigate('/create-listing')} variant="default">
                       Create Your First Listing
                     </Button>
@@ -861,12 +865,12 @@ const DashboardPage: React.FC = () => {
                           }}
                         />
                         <div className="p-4">
-                          <h3 className="text-lg font-medium text-gray-900 mb-2">{listing.title}</h3>
-                          <p className="text-sm text-gray-600 mb-2">Category: {listing.category}</p>
-                          <p className="text-sm text-gray-600 mb-2">Condition: {listing.condition}</p>
+                          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">{listing.title}</h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">Category: {listing.category}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">Condition: {listing.condition}</p>
                           {listing.pricing && (
                             <p className="text-lg font-bold text-gray-900 mb-2">
-                              ₹{listing.pricing.basePrice}/day
+                              <span className="dark:text-gray-100">₹{listing.pricing.basePrice}/day</span>
                             </p>
                           )}
                           <div className="flex items-center justify-between">
