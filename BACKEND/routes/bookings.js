@@ -9,35 +9,16 @@ const router = express.Router();
 // @access  Private
 router.post('/', authenticate, async (req, res) => {
   try {
-    const { listingId, startDate, endDate, notes } = req.body;
+    const { listingId, startDate, endDate, notes, barterItem } = req.body;
     const userId = req.user.userId;
 
     console.log('Booking request:', { listingId, startDate, endDate, userId });
 
     // Validate required fields
-    if (!listingId || !startDate || !endDate) {
+    if (!listingId) {
       return res.status(400).json({
         success: false,
-        message: 'Listing ID, start date, and end date are required'
-      });
-    }
-
-    // Validate dates
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const now = new Date();
-
-    if (start < now) {
-      return res.status(400).json({
-        success: false,
-        message: 'Start date cannot be in the past'
-      });
-    }
-
-    if (end <= start) {
-      return res.status(400).json({
-        success: false,
-        message: 'End date must be after start date'
+        message: 'Listing ID is required'
       });
     }
 
@@ -58,53 +39,77 @@ router.post('/', authenticate, async (req, res) => {
       });
     }
 
-    // Check for booking conflicts
-    const conflictingBooking = await Booking.findOne({
-      listingId,
-      status: { $in: ['pending', 'confirmed'] },
-      $or: [
-        {
-          startDate: { $lte: end },
-          endDate: { $gte: start }
-        }
-      ]
-    });
-
-    if (conflictingBooking) {
-      return res.status(400).json({
-        success: false,
-        message: 'Listing is already booked for the selected dates'
-      });
-    }
-
-    // Calculate total amount
-    const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-    const dailyRate = listing.pricing?.dailyRate || 0;
-    const totalAmount = days * dailyRate;
-
-    console.log('Booking calculation:', { 
-      days, 
-      dailyRate, 
-      totalAmount, 
-      pricing: listing.pricing 
-    });
-
-    // Create booking
-    const booking = new Booking({
+    let bookingData = {
       userId,
       listingId,
-      startDate: start,
-      endDate: end,
-      totalAmount,
-      notes
-    });
+      notes,
+      status: 'pending'
+    };
 
+    // Handle pricing type logic
+    if (listing.pricing?.type === 'rent') {
+      // Validate dates
+      if (!startDate || !endDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'Start date and end date are required for rental bookings'
+        });
+      }
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const now = new Date();
+      if (start < now) {
+        return res.status(400).json({
+          success: false,
+          message: 'Start date cannot be in the past'
+        });
+      }
+      if (end <= start) {
+        return res.status(400).json({
+          success: false,
+          message: 'End date must be after start date'
+        });
+      }
+      // Check for booking conflicts
+      const conflictingBooking = await Booking.findOne({
+        listingId,
+        status: { $in: ['pending', 'confirmed'] },
+        $or: [
+          {
+            startDate: { $lte: end },
+            endDate: { $gte: start }
+          }
+        ]
+      });
+      if (conflictingBooking) {
+        return res.status(400).json({
+          success: false,
+          message: 'Listing is already booked for the selected dates'
+        });
+      }
+      // Calculate total amount
+      const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+      const dailyRate = listing.pricing?.dailyRate || 0;
+      bookingData.startDate = start;
+      bookingData.endDate = end;
+      bookingData.totalAmount = days * dailyRate;
+    } else if (listing.pricing?.type === 'sell') {
+      bookingData.totalAmount = listing.pricing?.sellPrice || 0;
+    } else if (listing.pricing?.type === 'barter') {
+      bookingData.totalAmount = 0;
+      if (barterItem) bookingData.barterItem = barterItem;
+    } else if (listing.pricing?.type === 'free') {
+      bookingData.totalAmount = 0;
+    }
+
+    // Create booking
+    const booking = new Booking(bookingData);
     await booking.save();
 
     // Populate user and listing details
     await booking.populate([
       { path: 'userId', select: 'name email' },
-      { path: 'listingId', select: 'title images pricing location' }
+      { path: 'listingId', select: 'title images pricing location ownerId' }
     ]);
 
     res.status(201).json({

@@ -13,11 +13,11 @@ const bookingSchema = new mongoose.Schema({
   },
   startDate: {
     type: Date,
-    required: true
+    required: false
   },
   endDate: {
     type: Date,
-    required: true
+    required: false
   },
   totalAmount: {
     type: Number,
@@ -50,6 +50,11 @@ const bookingSchema = new mongoose.Schema({
     type: String,
     maxlength: 500
   },
+  barterItem: {
+    type: String,
+    maxlength: 500,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -60,14 +65,16 @@ const bookingSchema = new mongoose.Schema({
   }
 });
 
-// Validate that endDate is after startDate
+// Validate that endDate is after startDate only for rent type
 bookingSchema.pre('save', function(next) {
-  if (this.endDate <= this.startDate) {
-    next(new Error('End date must be after start date'));
-  } else {
-    this.updatedAt = Date.now();
-    next();
+  if (this.startDate && this.endDate) {
+    if (this.endDate <= this.startDate) {
+      next(new Error('End date must be after start date'));
+      return;
+    }
   }
+  this.updatedAt = Date.now();
+  next();
 });
 
 // Index for efficient queries
