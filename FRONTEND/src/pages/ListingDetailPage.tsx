@@ -488,53 +488,64 @@ export default function ListingDetailPage() {
                   </div>
                 )}
               </div>
-              
 
-              {/* Dynamic action button based on pricing type */}
-              {listing.pricing?.type === 'rent' && (
-                <button
-                  onClick={() => setShowBookingModal(true)}
-                  className="w-full py-4 bg-gradient-to-r from-blue-600 to-green-500 text-white font-medium rounded-xl flex justify-center items-center mb-4 hover:from-blue-700 hover:to-green-600 transition-all"
+              {/* Only show booking/chat buttons if user is NOT the owner */}
+              {user && listing.ownerId?._id !== user.id ? (
+                <>
+                  {listing.pricing?.type === 'rent' && (
+                    <button
+                      onClick={() => setShowBookingModal(true)}
+                      className="w-full py-4 bg-gradient-to-r from-blue-600 to-green-500 text-white font-medium rounded-xl flex justify-center items-center mb-4 hover:from-blue-700 hover:to-green-600 transition-all"
+                    >
+                      <Calendar className="h-5 w-5 mr-2" />
+                      Book Now
+                    </button>
+                  )}
+                  {listing.pricing?.type === 'sell' && (
+                    <button
+                      onClick={() => setShowBookingModal(true)}
+                      className="w-full py-4 bg-gradient-to-r from-green-600 to-blue-500 text-white font-medium rounded-xl flex justify-center items-center mb-4 hover:from-green-700 hover:to-blue-600 transition-all"
+                    >
+                      <ShoppingCart className="h-5 w-5 mr-2" />
+                      Buy Now
+                    </button>
+                  )}
+                  {listing.pricing?.type === 'barter' && (
+                    <button
+                      onClick={() => setShowBookingModal(true)}
+                      className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white font-medium rounded-xl flex justify-center items-center mb-4 hover:from-purple-700 hover:to-pink-600 transition-all"
+                    >
+                      <BarChart3 className="h-5 w-5 mr-2" />
+                      Barter Now
+                    </button>
+                  )}
+                  {listing.pricing?.type === 'free' && (
+                    <button
+                      onClick={() => setShowBookingModal(true)}
+                      className="w-full py-4 bg-gradient-to-r from-gray-600 to-green-500 text-white font-medium rounded-xl flex justify-center items-center mb-4 hover:from-gray-700 hover:to-green-600 transition-all"
+                    >
+                      <Gift className="h-5 w-5 mr-2" />
+                      Get Now
+                    </button>
+                  )}
+                  <button
+                    onClick={handleAddOwnerToFriends}
+                    className="w-full py-4 bg-gray-700 text-white font-medium rounded-xl flex justify-center items-center hover:bg-gray-600 transition-colors"
+                  >
+                    <MessageCircle className="h-5 w-5 mr-2" />
+                    Add Owner to Chat Contacts
+                  </button>
+                </>
+              ) : (
+                // If owner, show Edit button
+                <Button
+                  onClick={() => navigate('/dashboard')}
+                  variant="default"
+                  className="w-full py-4 font-medium rounded-xl flex justify-center items-center mb-4"
                 >
-                  <Calendar className="h-5 w-5 mr-2" />
-                  Book Now
-                </button>
+                  Edit using Dashboard
+                </Button>
               )}
-              {listing.pricing?.type === 'sell' && (
-                <button
-                  onClick={() => setShowBookingModal(true)}
-                  className="w-full py-4 bg-gradient-to-r from-green-600 to-blue-500 text-white font-medium rounded-xl flex justify-center items-center mb-4 hover:from-green-700 hover:to-blue-600 transition-all"
-                >
-                  <ShoppingCart className="h-5 w-5 mr-2" />
-                  Buy Now
-                </button>
-              )}
-              {listing.pricing?.type === 'barter' && (
-                <button
-                  onClick={() => setShowBookingModal(true)}
-                  className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white font-medium rounded-xl flex justify-center items-center mb-4 hover:from-purple-700 hover:to-pink-600 transition-all"
-                >
-                  <BarChart3 className="h-5 w-5 mr-2" />
-                  Barter Now
-                </button>
-              )}
-              {listing.pricing?.type === 'free' && (
-                <button
-                  onClick={() => setShowBookingModal(true)}
-                  className="w-full py-4 bg-gradient-to-r from-gray-600 to-green-500 text-white font-medium rounded-xl flex justify-center items-center mb-4 hover:from-gray-700 hover:to-green-600 transition-all"
-                >
-                  <Gift className="h-5 w-5 mr-2" />
-                  Get Now
-                </button>
-              )}
-              
-              <button
-                onClick={handleAddOwnerToFriends}
-                className="w-full py-4 bg-gray-700 text-white font-medium rounded-xl flex justify-center items-center hover:bg-gray-600 transition-colors"
-              >
-                <MessageCircle className="h-5 w-5 mr-2" />
-                Add Owner to Chat Contacts
-              </button>
             </div>
             
             {/* Owner Card */}

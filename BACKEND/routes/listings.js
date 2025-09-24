@@ -1,3 +1,4 @@
+
 const express = require('express');
 const mongoose = require('mongoose');
 const multer = require('multer');
@@ -7,6 +8,56 @@ const Listing = require('../models/Listing');
 const { authenticate } = require('../middleware/auth');
 
 const router = express.Router();
+
+// @route   DELETE /api/listings/:id
+// @desc    Delete a listing by ID (owner only)
+// @access  Private
+router.delete('/:id', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid listing ID format' });
+    }
+    const listing = await Listing.findById(id);
+    if (!listing) {
+      return res.status(404).json({ success: false, message: 'Listing not found' });
+    }
+    if (String(listing.ownerId) !== String(req.user.userId)) {
+      return res.status(403).json({ success: false, message: 'Not authorized to delete this listing' });
+    }
+    await Listing.deleteOne({ _id: id });
+    res.json({ success: true, message: 'Listing deleted successfully' });
+  } catch (error) {
+    console.error('Delete listing error:', error);
+    res.status(500).json({ success: false, message: 'Error deleting listing', error: error.message });
+  }
+});
+
+// @route   PUT /api/listings/:id/status
+// @desc    Toggle public/private status of a listing (owner only)
+// @access  Private
+router.put('/:id/status', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isActive } = req.body;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid listing ID format' });
+    }
+    const listing = await Listing.findById(id);
+    if (!listing) {
+      return res.status(404).json({ success: false, message: 'Listing not found' });
+    }
+    if (String(listing.ownerId) !== String(req.user.userId)) {
+      return res.status(403).json({ success: false, message: 'Not authorized to update this listing' });
+    }
+    listing.isActive = !!isActive;
+    await listing.save();
+    res.json({ success: true, message: `Listing is now ${listing.isActive ? 'Public' : 'Private'}` });
+  } catch (error) {
+    console.error('Update listing status error:', error);
+    res.status(500).json({ success: false, message: 'Error updating listing status', error: error.message });
+  }
+});
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, '..', 'uploads', 'listings');

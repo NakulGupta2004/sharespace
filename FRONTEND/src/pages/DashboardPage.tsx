@@ -786,15 +786,15 @@ const DashboardPage: React.FC = () => {
                             }}
                           />
                           <div className="p-4">
-                            <h3 className="text-lg font-medium text-gray-900 mb-2">{listing.title}</h3>
-                            <p className="text-sm text-gray-600 mb-2">Category: {listing.category}</p>
-                            <p className="text-sm text-gray-600 mb-2">Condition: {listing.condition}</p>
+                            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">{listing.title}</h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">Category: {listing.category}</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">Condition: {listing.condition}</p>
                             {listing.pricing && (
                               <p className="text-lg font-bold text-gray-900 mb-2">
-                                ₹{listing.pricing.basePrice}{listing.pricing.type === 'rent' ? '/day' : ''}
+                                <span className="dark:text-gray-100">₹{listing.pricing.basePrice}{listing.pricing.type === 'rent' ? '/day' : ''}</span>
                               </p>
                             )}
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between mb-2">
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                 listing.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                               }`}>
@@ -806,6 +806,53 @@ const DashboardPage: React.FC = () => {
                                 size="sm"
                               >
                                 View Details
+                              </Button>
+                            </div>
+                            {/* Management buttons for each listing */}
+                            <div className="flex flex-col gap-2 mt-2">
+                              <Button
+                                onClick={() => navigate(`/edit-listing/${listing._id}`)}
+                                variant="default"
+                                size="sm"
+                              >
+                                Update
+                              </Button>
+                              <Button
+                                onClick={async () => {
+                                  if (window.confirm('Are you sure you want to delete this listing?')) {
+                                    try {
+                                      await axios.delete(`http://localhost:5000/api/listings/${listing._id}`, {
+                                        headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
+                                      });
+                                      alert('Listing deleted successfully.');
+                                      window.location.reload();
+                                    } catch (err) {
+                                      alert('Error deleting listing.');
+                                    }
+                                  }
+                                }}
+                                variant="destructive"
+                                size="sm"
+                              >
+                                Delete
+                              </Button>
+                              <Button
+                                onClick={async () => {
+                                  try {
+                                    const newStatus = listing.isActive ? false : true;
+                                    await axios.put(`http://localhost:5000/api/listings/${listing._id}/status`, { isActive: newStatus }, {
+                                      headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
+                                    });
+                                    alert(`Listing is now ${newStatus ? 'Public' : 'Private'}.`);
+                                    window.location.reload();
+                                  } catch (err) {
+                                    alert('Error updating listing status.');
+                                  }
+                                }}
+                                variant={listing.isActive ? 'secondary' : 'default'}
+                                size="sm"
+                              >
+                                {listing.isActive ? 'Make Private' : 'Make Public'}
                               </Button>
                             </div>
                           </div>
