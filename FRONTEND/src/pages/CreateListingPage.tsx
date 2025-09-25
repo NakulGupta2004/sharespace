@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { uploadImageToCloudinary } from '../utils/cloudinaryService'
 import { 
   Upload, 
   X, 
@@ -30,6 +31,8 @@ interface FormData {
   location: string
   tags: string[]
   imageUrls: string[]
+  price: string
+  isPublic: boolean
 }
 
 interface FormErrors {
@@ -78,7 +81,9 @@ export default function CreateListingPage() {
     depositAmount: '',
     location: 'On campus',
     tags: [],
-    imageUrls: []
+    imageUrls: [],
+    price: '',
+    isPublic: true
   })
   
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
@@ -102,17 +107,19 @@ export default function CreateListingPage() {
     const files = Array.from(e.target.files || [])
     const validFiles = files.filter(file => {
       const isValidType = file.type.startsWith('image/')
-      const isValidSize = file.size <= 5 * 1024 * 1024 // 5MB
+      const isValidSize = file.size > 0 && file.size <= 5 * 1024 * 1024 // 5MB, not empty
       return isValidType && isValidSize
     })
-    
+    if (files.length === 0) {
+      setErrors(prev => ({ ...prev, images: 'No file selected.' }))
+      return
+    }
     if (validFiles.length !== files.length) {
       setErrors(prev => ({
         ...prev,
-        images: 'Some files were rejected. Only image files under 5MB are allowed.'
+        images: 'Some files were rejected. Only non-empty image files under 5MB are allowed.'
       }))
     }
-    
     setSelectedFiles(prev => [...prev, ...validFiles].slice(0, 5)) // Max 5 images
   }
 
@@ -209,72 +216,54 @@ export default function CreateListingPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!validateForm()) {
-      return
-    }
-
     setIsSubmitting(true)
-    setSubmitStatus('idle')
-
+    setErrors({})
+  setSubmitStatus('idle')
     try {
-      const formDataToSend = new FormData()
-      
-      // Add basic fields
-      formDataToSend.append('title', formData.title)
-      formDataToSend.append('description', formData.description)
-      formDataToSend.append('category', formData.category)
-      formDataToSend.append('subcategory', formData.subcategory)
-      formDataToSend.append('condition', formData.condition)
-      
-      // Add pricing
+      let imageUrls: string[] = [...formData.imageUrls]
+      // If files are selected, upload them to Cloudinary
+      if (selectedFiles.length > 0) {
+        // Only upload valid files
+        const validFiles = selectedFiles.filter(file => file.size > 0 && file.type.startsWith('image/'))
+        if (validFiles.length === 0) {
+          throw new Error('No valid image files to upload.')
+        }
+        const uploadPromises = validFiles.map(file => uploadImageToCloudinary(file))
+        const cloudinaryUrls = await Promise.all(uploadPromises)
+        imageUrls = imageUrls.concat(cloudinaryUrls)
+      }
+
+      // Prepare pricing object for backend
       const pricing = {
         type: formData.pricingType,
         hourlyRate: formData.hourlyRate ? parseFloat(formData.hourlyRate) : undefined,
         dailyRate: formData.dailyRate ? parseFloat(formData.dailyRate) : undefined,
         sellPrice: formData.sellPrice ? parseFloat(formData.sellPrice) : undefined,
         depositAmount: formData.depositAmount ? parseFloat(formData.depositAmount) : 0
-      }
-      formDataToSend.append('pricing', JSON.stringify(pricing))
-      
-      // Add location
-      const location = {
-        type: 'campus',
-        details: formData.location
-      }
-      formDataToSend.append('location', JSON.stringify(location))
-      
-      // Add availability
-      const availability = {
-        isAvailable: true,
-        availableFrom: new Date().toISOString(),
-        availableUntil: null
-      }
-      formDataToSend.append('availability', JSON.stringify(availability))
-      
-      // Add tags
-      if (formData.tags.length > 0) {
-        formDataToSend.append('tags', JSON.stringify(formData.tags))
-      }
-      
-      // Add image URLs if no files selected
-      if (selectedFiles.length === 0 && formData.imageUrls.length > 0) {
-        formData.imageUrls.forEach(url => {
-          formDataToSend.append('image_urls', url)
-        })
-      }
-      
-      // Add files
-      selectedFiles.forEach(file => {
-        formDataToSend.append('images', file)
-      })
+      };
 
-      const response = await axios.post('/api/listings', formDataToSend, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      })
+      // Prepare payload for backend
+      const payload = {
+        title: formData.title,
+        description: formData.description,
+        category: formData.category,
+        subcategory: formData.subcategory,
+        condition: formData.condition,
+        pricing,
+        location: {
+          type: 'campus',
+          details: formData.location
+        },
+        availability: {
+          isAvailable: true,
+          availableFrom: new Date().toISOString(),
+          availableUntil: null
+        },
+        tags: formData.tags,
+        image_urls: imageUrls
+      }
 
+      const response = await axios.post('/api/listings', payload)
       const data = response.data
 
       if (data.success) {

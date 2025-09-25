@@ -172,12 +172,12 @@ router.post('/', authenticate, upload.array('images', 5), async (req, res) => {
       image_urls: image_urls || [],
       condition,
       pricing: parsedPricing,
-      availability: availability ? JSON.parse(availability) : {
+      availability: typeof availability === 'string' ? JSON.parse(availability) : availability || {
         isAvailable: true,
         availableFrom: new Date(),
         availableUntil: null
       },
-      location: location ? JSON.parse(location) : {
+      location: typeof location === 'string' ? JSON.parse(location) : location || {
         type: 'campus',
         details: 'On campus'
       },
