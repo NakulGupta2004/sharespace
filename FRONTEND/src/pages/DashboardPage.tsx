@@ -5,6 +5,7 @@ import axios from 'axios';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { PaymentButton } from '../components/ui/PaymentButton';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
 
 interface Booking {
   _id: string;
@@ -93,6 +94,8 @@ const DashboardPage: React.FC = () => {
     pendingBookings: 0
   });
   const [userEarnings, setUserEarnings] = useState<number>(0);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [listingToDelete, setListingToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -818,18 +821,9 @@ const DashboardPage: React.FC = () => {
                                 Update
                               </Button>
                               <Button
-                                onClick={async () => {
-                                  if (window.confirm('Are you sure you want to delete this listing?')) {
-                                    try {
-                                      await axios.delete(`http://localhost:5000/api/listings/${listing._id}`, {
-                                        headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
-                                      });
-                                      alert('Listing deleted successfully.');
-                                      window.location.reload();
-                                    } catch (err) {
-                                      alert('Error deleting listing.');
-                                    }
-                                  }
+                                onClick={() => {
+                                  setListingToDelete(listing._id);
+                                  setConfirmOpen(true);
                                 }}
                                 variant="destructive"
                                 size="sm"
@@ -944,6 +938,30 @@ const DashboardPage: React.FC = () => {
           </Card>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        message="Are you sure you want to delete this listing?"
+        onConfirm={async () => {
+          if (listingToDelete) {
+            try {
+              await axios.delete(`http://localhost:5000/api/listings/${listingToDelete}`, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
+              });
+              setConfirmOpen(false);
+              setListingToDelete(null);
+              window.location.reload();
+            } catch (err) {
+              setConfirmOpen(false);
+              setListingToDelete(null);
+            }
+          }
+        }}
+        onCancel={() => {
+          setConfirmOpen(false);
+          setListingToDelete(null);
+        }}
+      />
     </div>
   );
 };
