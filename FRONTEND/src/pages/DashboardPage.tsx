@@ -1,3 +1,18 @@
+// Team member type for frontend
+interface TeamMember {
+  _id: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'member';
+}
+
+interface Team {
+  _id: string;
+  name: string;
+  description?: string;
+  members: TeamMember[];
+  admins: string[];
+}
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -77,6 +92,14 @@ interface DashboardStats {
 }
 
 const DashboardPage: React.FC = () => {
+  // Team section state
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  const [teamLoading, setTeamLoading] = useState(false);
+  const [teamError, setTeamError] = useState<string | null>(null);
+  const [showTeamSettings, setShowTeamSettings] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<TeamMember | null>(null);
+  const [confirmDeleteTeam, setConfirmDeleteTeam] = useState(false);
   const [listingsTab, setListingsTab] = useState<'history' | 'all'>('history');
   // Add workspace state to control which dashboard to show
   const [workspace, setWorkspace] = useState<'marketplace' | 'team'>('marketplace');
@@ -98,6 +121,83 @@ const DashboardPage: React.FC = () => {
   const [userEarnings, setUserEarnings] = useState<number>(0);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [listingToDelete, setListingToDelete] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Fetch teams for user when switching to team workspace
+    if (workspace === 'team') {
+      fetchTeams();
+    }
+  }, [workspace]);
+
+  // Fetch teams for the current user
+  const fetchTeams = async () => {
+    setTeamLoading(true);
+    setTeamError(null);
+    try {
+      const response = await axios.get('http://localhost:5000/api/teams/my', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
+      });
+      if (response.data.success) {
+        // Populate members with role info
+        const teamsData = response.data.teams.map((team: any) => ({
+          ...team,
+          members: team.members.map((member: any) => ({
+            ...member,
+            role: team.admins.some((admin: any) => admin._id === member._id) ? 'admin' : 'member',
+          })),
+        }));
+        setTeams(teamsData);
+        setSelectedTeam(teamsData[0] || null);
+      } else {
+        setTeamError('Failed to fetch teams');
+      }
+    } catch (err: any) {
+      setTeamError(err.response?.data?.message || 'Failed to fetch teams');
+    } finally {
+      setTeamLoading(false);
+    }
+  };
+
+  // Remove member (admin only)
+  const handleRemoveMember = async (teamId: string, memberId: string) => {
+    try {
+      const response = await axios.post(`http://localhost:5000/api/teams/${teamId}/remove-member`, {
+        memberId
+      }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
+      });
+      
+      if (response.data.success) {
+        alert('Member removed successfully');
+        setMemberToRemove(null);
+        fetchTeams();
+      } else {
+        alert(response.data.error || 'Failed to remove member');
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to remove member');
+    }
+  };
+
+  // Delete team (admin only)
+  const handleDeleteTeam = async (teamId: string) => {
+    try {
+      const response = await axios.delete(`http://localhost:5000/api/teams/${teamId}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
+      });
+      
+      if (response.data.success) {
+        alert('Team deleted successfully');
+        setConfirmDeleteTeam(false);
+        setSelectedTeam(null);
+        fetchTeams();
+      } else {
+        alert(response.data.error || 'Failed to delete team');
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to delete team');
+    }
+  };
 
   useEffect(() => {
     if (!user) {
@@ -286,11 +386,6 @@ const DashboardPage: React.FC = () => {
 
   return (
     <>
-      {/* Workspace Switcher (optional, for demo) */}
-      <div className="flex justify-end p-4">
-        <Button onClick={() => setWorkspace('marketplace')} className={workspace === 'marketplace' ? 'bg-blue-500 text-white' : ''}>Marketplace</Button>
-        <Button onClick={() => setWorkspace('team')} className={workspace === 'team' ? 'bg-blue-500 text-white ml-2' : 'ml-2'}>Team</Button>
-      </div>
       {/* Main Content with Transition */}
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         {workspace === 'marketplace' && (
@@ -954,11 +1049,87 @@ const DashboardPage: React.FC = () => {
         )}
         {workspace === 'team' && (
           <div className="transition-all duration-500 ease-in-out">
-            {/* Team Workspace content goes here. You can add team features here next. */}
-            <div className="flex flex-col items-center justify-center h-96 text-center">
+            <div className="max-w-4xl mx-auto px-4 py-8">
               <h2 className="text-3xl font-bold text-blue-600 mb-4">Team Workspace</h2>
-              <p className="text-lg text-gray-600 mb-6">Collaborate, manage tasks, and work with your team here!</p>
-              {/* Add team features/components here */}
+              {teamLoading ? (
+                <div className="text-center py-8">Loading teams...</div>
+              ) : teamError ? (
+                <div className="text-center py-8 text-red-600">{teamError}</div>
+              ) : selectedTeam ? (
+                <Card className="p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900 mb-1">{selectedTeam.name}</h3>
+                      <p className="text-gray-600 mb-2">{selectedTeam.description}</p>
+                    </div>
+                    {(selectedTeam.admins.includes(user?.id) || selectedTeam.admins.includes((user as any)?._id)) && (
+                      <Button variant="outline" onClick={() => setShowTeamSettings(!showTeamSettings)}>
+                        ⚙️ Settings
+                      </Button>
+                    )}
+                  </div>
+                  {/* Team Members Table */}
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full bg-white border rounded-lg">
+                      <thead>
+                        <tr>
+                          <th className="px-4 py-2 border-b">Name</th>
+                          <th className="px-4 py-2 border-b">Email</th>
+                          <th className="px-4 py-2 border-b">Role</th>
+                          {(selectedTeam.admins.includes(user?.id) || selectedTeam.admins.includes((user as any)?._id)) && <th className="px-4 py-2 border-b">Actions</th>}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedTeam.members.map((member) => (
+                          <tr key={member._id}>
+                            <td className="px-4 py-2 border-b">{member.name}</td>
+                            <td className="px-4 py-2 border-b">{member.email}</td>
+                            <td className="px-4 py-2 border-b">{member.role === 'admin' ? <span className="text-blue-600 font-semibold">Admin</span> : 'Member'}</td>
+                            {(selectedTeam.admins.includes(user?.id) || selectedTeam.admins.includes((user as any)?._id)) && (
+                              <td className="px-4 py-2 border-b">
+                                {member.role !== 'admin' && (
+                                  <Button variant="destructive" size="sm" onClick={() => setMemberToRemove(member)}>
+                                    Remove
+                                  </Button>
+                                )}
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {/* Team Settings for Admin */}
+                  {showTeamSettings && (selectedTeam.admins.includes(user?.id) || selectedTeam.admins.includes((user as any)?._id)) && (
+                    <div className="mt-6 p-4 border rounded-lg bg-gray-50">
+                      <h4 className="font-bold mb-2">Admin Actions</h4>
+                      <Button variant="destructive" onClick={() => setConfirmDeleteTeam(true)}>
+                        Delete Group
+                      </Button>
+                    </div>
+                  )}
+                </Card>
+              ) : (
+                <div className="text-center py-8">No team found.</div>
+              )}
+              {/* Confirm Remove Member Dialog */}
+              {memberToRemove && (
+                <ConfirmDialog
+                  open={!!memberToRemove}
+                  message={`Remove ${memberToRemove.name} from the team?`}
+                  onConfirm={() => handleRemoveMember(selectedTeam!._id, memberToRemove._id)}
+                  onCancel={() => setMemberToRemove(null)}
+                />
+              )}
+              {/* Confirm Delete Team Dialog */}
+              {confirmDeleteTeam && (
+                <ConfirmDialog
+                  open={confirmDeleteTeam}
+                  message={`Are you sure you want to delete the group "${selectedTeam?.name}"? This cannot be undone.`}
+                  onConfirm={() => handleDeleteTeam(selectedTeam!._id)}
+                  onCancel={() => setConfirmDeleteTeam(false)}
+                />
+              )}
             </div>
           </div>
         )}

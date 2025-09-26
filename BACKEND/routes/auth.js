@@ -22,7 +22,15 @@ router.get('/me', async (req, res) => {
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
-    res.json({ success: true, user });
+    res.json({ success: true, user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      college_id: user.college_id,
+      is_verified: user.verified,
+      credits: user.credits,
+      reputation: user.reputation
+    } });
   } catch (error) {
     res.status(401).json({ success: false, message: 'Invalid token' });
   }
