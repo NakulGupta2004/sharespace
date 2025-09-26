@@ -78,6 +78,8 @@ interface DashboardStats {
 
 const DashboardPage: React.FC = () => {
   const [listingsTab, setListingsTab] = useState<'history' | 'all'>('history');
+  // Add workspace state to control which dashboard to show
+  const [workspace, setWorkspace] = useState<'marketplace' | 'team'>('marketplace');
   const { user } = useAuth();
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -284,7 +286,11 @@ const DashboardPage: React.FC = () => {
 
   return (
     <>
-
+      {/* Workspace Switcher (optional, for demo) */}
+      <div className="flex justify-end p-4">
+        <Button onClick={() => setWorkspace('marketplace')} className={workspace === 'marketplace' ? 'bg-blue-500 text-white' : ''}>Marketplace</Button>
+        <Button onClick={() => setWorkspace('team')} className={workspace === 'team' ? 'bg-blue-500 text-white ml-2' : 'ml-2'}>Team</Button>
+      </div>
       {/* Main Content with Transition */}
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         {workspace === 'marketplace' && (
