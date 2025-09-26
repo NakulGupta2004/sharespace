@@ -20,7 +20,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 
-export default function Navbar() {
+export default function Navbar({ workspace, setWorkspace }: { workspace: 'marketplace' | 'team', setWorkspace: (w: 'marketplace' | 'team') => void }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -100,6 +100,21 @@ export default function Navbar() {
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
+          {/* Workspace Toggle Switch */}
+          <div className="hidden md:flex items-center mr-8">
+            <span className={`mr-4 font-semibold transition-colors duration-300 ${workspace === 'marketplace' ? 'text-blue-600' : 'text-gray-400'}`}>Marketplace</span>
+            <button
+              className={`w-16 h-8 flex items-center bg-gray-300 rounded-full p-1 transition-colors duration-300 focus:outline-none ${workspace === 'team' ? 'bg-blue-600' : 'bg-gray-300'}`}
+              onClick={() => setWorkspace(workspace === 'marketplace' ? 'team' : 'marketplace')}
+              aria-label="Toggle workspace"
+            >
+              <span
+                className={`w-6 h-6 bg-white rounded-full shadow transform transition-transform duration-300 ${workspace === 'team' ? 'translate-x-8' : ''}`}
+                style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
+              />
+            </button>
+            <span className={`ml-4 font-semibold transition-colors duration-300 ${workspace === 'team' ? 'text-blue-600' : 'text-gray-400'}`}>Team Workspace</span>
+          </div>
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
             <motion.div
