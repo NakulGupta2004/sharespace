@@ -87,6 +87,7 @@ export default function TeamWorkspacePage() {
   const [editTeamName, setEditTeamName] = useState('');
   const [editTeamDesc, setEditTeamDesc] = useState('');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Fetch users for team creation modal
   useEffect(() => {
@@ -111,8 +112,12 @@ export default function TeamWorkspacePage() {
       });
       const data = await res.json();
       if (data.success && Array.isArray(data.teams)) {
-        setTeams(data.teams);
-        setSelectedTeam(data.teams[0] || null);
+        // Remove duplicates based on _id
+        const uniqueTeams = data.teams.filter((team: Team, index: number, self: Team[]) => 
+          index === self.findIndex((t: Team) => t._id === team._id)
+        );
+        setTeams(uniqueTeams);
+        setSelectedTeam(uniqueTeams[0] || null);
       } else {
         setTeams([]);
         setSelectedTeam(null);
@@ -563,7 +568,7 @@ py-8">
                         </div>
                       </div>
                     </div>
-                    {isCurrentUserAdmin(selectedTeam) && (
+                    {user && isCurrentUserAdmin(selectedTeam) && (
                       <motion.button
                         whileHover={{ scale: 1.1, rotate: 90 }}
                         whileTap={{ scale: 0.9 }}
@@ -1446,7 +1451,7 @@ py-8">
                     <p className="text-gray-600 dark:text-gray-400 mb-4">Remove non-admin members from the team.</p>
                     <div className="space-y-3">
                       {Array.isArray(selectedTeam?.members) ? selectedTeam.members
-                        .filter((member: any) => !selectedTeam?.admins?.includes(member._id))
+                        .filter((member: any) => !selectedTeam?.admins?.some((admin: any) => admin._id === member._id))
                         .map((member: any) => (
                           <div key={member._id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-600 rounded-xl">
                             <div className="flex items-center space-x-3">

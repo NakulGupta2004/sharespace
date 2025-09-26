@@ -115,7 +115,7 @@ router.put('/:teamId/update', authenticate, async (req, res) => {
     if (!team) return res.status(404).json({ success: false, error: 'Team not found' });
     
     // Check if user is admin
-    if (!team.admins.some(admin => admin.toString() === userId)) {
+    if (!team.admins.some(admin => admin.toString() === userId.toString())) {
       return res.status(403).json({ success: false, error: 'Not authorized' });
     }
     
@@ -156,7 +156,7 @@ router.post('/:teamId/remove-member', authenticate, async (req, res) => {
     if (!team) return res.status(404).json({ success: false, error: 'Team not found' });
     
     // Check if user is admin
-    if (!team.admins.some(admin => admin.toString() === userId)) {
+    if (!team.admins.some(admin => admin.toString() === userId.toString())) {
       return res.status(403).json({ success: false, error: 'Not authorized' });
     }
     
@@ -201,7 +201,7 @@ router.delete('/:teamId', authenticate, async (req, res) => {
     if (!team) return res.status(404).json({ success: false, error: 'Team not found' });
     
     // Check if user is admin
-    if (!team.admins.some(admin => admin.toString() === userId)) {
+    if (!team.admins.some(admin => admin.toString() === userId.toString())) {
       return res.status(403).json({ success: false, error: 'Not authorized' });
     }
     
