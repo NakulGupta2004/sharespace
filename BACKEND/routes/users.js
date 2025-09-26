@@ -43,7 +43,6 @@ router.get('/profile', authenticate, async (req, res) => {
   }
 });
 
-
 // @route   POST /api/users/add-friend/:friendId
 // @desc    Add a user to the authenticated user's friendList
 // @access  Private
@@ -74,6 +73,19 @@ router.post('/add-friend/:friendId', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Add friend error:', error);
     res.status(500).json({ success: false, message: 'Server error adding friend.' });
+  }
+});
+
+// @route   GET /api/users/all
+// @desc    Get all registered users (for team creation)
+// @access  Private
+router.get('/all', authenticate, async (req, res) => {
+  try {
+    const users = await User.find({}, 'name email avatar_url _id');
+    res.json({ success: true, users });
+  } catch (error) {
+    console.error('Get all users error:', error);
+    res.status(500).json({ success: false, message: 'Server error fetching users.' });
   }
 });
 
