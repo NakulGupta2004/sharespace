@@ -79,6 +79,11 @@ export default function TeamWorkspacePage() {
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [taskFilter, setTaskFilter] = useState<string>('all');
   const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = useState(false);
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskDescription, setTaskDescription] = useState('');
+  const [taskPriority, setTaskPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
+  const [taskDueDate, setTaskDueDate] = useState('');
+  const [taskAssignee, setTaskAssignee] = useState<string>('');
   const [resources, setResources] = useState<Resource[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
@@ -132,6 +137,35 @@ export default function TeamWorkspacePage() {
     fetchTeams();
   }, []);
 
+  // Fetch functions
+  async function fetchTasks() {
+    if (!selectedTeam) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/teams/${selectedTeam._id}/tasks`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
+      });
+      const data = await res.json();
+      if (data.success) setTasks(data.tasks);
+      else setTasks([]);
+    } catch {
+      setTasks([]);
+    }
+  }
+
+  async function fetchActivity() {
+    if (!selectedTeam) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/teams/${selectedTeam._id}/activity`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
+      });
+      const data = await res.json();
+      if (data.success) setRecentActivity(data.activity);
+      else setRecentActivity([]);
+    } catch {
+      setRecentActivity([]);
+    }
+  }
+
   // Fetch resources, tasks, activity for selected team
   useEffect(() => {
     if (!selectedTeam) return;
@@ -146,32 +180,6 @@ export default function TeamWorkspacePage() {
         else setResources([]);
       } catch {
         setResources([]);
-      }
-    }
-    async function fetchTasks() {
-      if (!selectedTeam) return;
-      try {
-        const res = await fetch(`http://localhost:5000/api/teams/${selectedTeam._id}/tasks`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
-        });
-        const data = await res.json();
-        if (data.success) setTasks(data.tasks);
-        else setTasks([]);
-      } catch {
-        setTasks([]);
-      }
-    }
-    async function fetchActivity() {
-      if (!selectedTeam) return;
-      try {
-        const res = await fetch(`http://localhost:5000/api/teams/${selectedTeam._id}/activity`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
-        });
-        const data = await res.json();
-        if (data.success) setRecentActivity(data.activity);
-        else setRecentActivity([]);
-      } catch {
-        setRecentActivity([]);
       }
     }
     if (activeTab === 'inventory') fetchResources();
@@ -287,6 +295,47 @@ export default function TeamWorkspacePage() {
       }
     } catch {
       alert('Error removing member');
+    }
+  }
+
+  // Create task handler
+  async function handleCreateTask(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!selectedTeam || !taskTitle.trim()) return;
+
+    try {
+      const res = await fetch('http://localhost:5000/api/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}`
+        },
+        body: JSON.stringify({
+          title: taskTitle,
+          description: taskDescription,
+          teamId: selectedTeam._id,
+          assignedTo: taskAssignee || null,
+          priority: taskPriority,
+          dueDate: taskDueDate || null
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setIsCreateTaskModalOpen(false);
+        setTaskTitle('');
+        setTaskDescription('');
+        setTaskPriority('medium');
+        setTaskDueDate('');
+        setTaskAssignee('');
+        fetchTasks();
+        fetchActivity();
+      } else {
+        alert('Failed to create task');
+      }
+    } catch (error) {
+      console.error('Error creating task:', error);
+      alert('Error creating task');
     }
   }
 
@@ -726,27 +775,155 @@ py-8">
                           variants={itemVariants}
                           className="bg-gradient-to-br from-green-50 to-teal-100 dark:from-gray-800 dark:to-gray-700 rounded-3xl p-6 shadow-xl border border-white/20"
                         >
-                          <div className="flex items-center space-x-3 mb-6">
-                            <div className="p-3 bg-green-500 rounded-2xl">
-                              <Users className="h-6 w-6 text-white" />
-                            </div>
-                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                              Team Members
-                            </h3>
-                          </div>
-                          <div className="space-y-4">
-                            {Array.isArray(selectedTeam?.members) ? selectedTeam.members.map((member: any) => (
-                              <div key={member._id} className="flex items-center space-x-4 p-3 bg-white/70 dark:bg-gray-700/70 backdrop-blur-sm rounded-2xl shadow-md border border-white/30">
-                                <img src={member.avatar_url} alt={member.name} className="w-10 h-10 rounded-full shadow-sm" />
-                                <div className="flex-1">
-                                  <div className="font-medium text-gray-900 dark:text-white">{member.name}</div>
-                                  <div className="text-sm text-gray-500 dark:text-gray-400">{member.email}</div>
-                                </div>
-                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${selectedTeam?.admins?.some((admin: any) => admin._id === member._id) ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>
-                                  {selectedTeam?.admins?.some((admin: any) => admin._id === member._id) ? 'Admin' : 'Member'}
-                                </span>
+                          <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center space-x-3">
+                              <div className="p-3 bg-green-500 rounded-2xl">
+                                <Users className="h-6 w-6 text-white" />
                               </div>
-                            )) : <p className="text-gray-500">No members data available.</p>}
+                              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                                Team Members ({Array.isArray(selectedTeam?.members) ? selectedTeam.members.length : 0})
+                              </h3>
+                            </div>
+                            {isCurrentUserAdmin(selectedTeam) && (
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => setShowSettingsModal(true)}
+                                className="px-4 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors duration-300 text-sm font-medium"
+                              >
+                                Manage Members
+                              </motion.button>
+                            )}
+                          </div>
+                          <div className="grid gap-8 grid-cols-1">
+                            {Array.isArray(selectedTeam?.members) ? selectedTeam.members.map((member: any) => (
+                              <motion.div
+                                key={member._id}
+                                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                transition={{ duration: 0.4, delay: Math.random() * 0.2 }}
+                                className="group relative"
+                              >
+                                <div className="relative bg-gradient-to-br from-white/90 to-white/70 dark:from-gray-800/90 dark:to-gray-800/70 backdrop-blur-xl rounded-3xl shadow-lg hover:shadow-2xl border border-white/30 dark:border-gray-700/30 overflow-hidden transition-all duration-500 hover:-translate-y-2 hover:scale-[1.02]">
+                                  {/* Decorative background elements */}
+                                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-blue-400/10 to-purple-500/10 rounded-full -translate-y-16 translate-x-16"></div>
+                                  <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-green-400/10 to-blue-500/10 rounded-full translate-y-12 -translate-x-12"></div>
+
+                                  {/* Role badge - positioned absolutely */}
+                                  <div className="absolute top-4 right-4 z-10">
+                                    <div className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm ${
+                                      selectedTeam?.admins?.some((admin: any) => admin._id === member._id)
+                                        ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-white'
+                                        : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white'
+                                    }`}>
+                                      {selectedTeam?.admins?.some((admin: any) => admin._id === member._id) ? (
+                                        <Crown className="h-3.5 w-3.5" />
+                                      ) : (
+                                        <User className="h-3.5 w-3.5" />
+                                      )}
+                                      <span className="font-bold">
+                                        {selectedTeam?.admins?.some((admin: any) => admin._id === member._id) ? 'ADMIN' : 'MEMBER'}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Remove button - only for admins to remove non-admin members */}
+                                  {isCurrentUserAdmin(selectedTeam) && !selectedTeam?.admins?.some((admin: any) => admin._id === member._id) && (
+                                    <div className="absolute top-4 left-4 z-10">
+                                      <motion.button
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.9 }}
+                                        onClick={() => handleRemoveMember(member._id)}
+                                        className="p-2 bg-red-500/90 hover:bg-red-600 text-white rounded-full shadow-lg backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300"
+                                        title="Remove member"
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </motion.button>
+                                    </div>
+                                  )}
+
+                                  {/* Main content */}
+                                  <div className="relative z-10 p-6 pt-16">
+                                    {/* Avatar and basic info */}
+                                    <div className="flex items-center space-x-4 mb-4">
+                                      <div className="relative">
+                                        <div className={`w-16 h-16 rounded-2xl shadow-xl border-3 overflow-hidden ${
+                                          selectedTeam?.admins?.some((admin: any) => admin._id === member._id)
+                                            ? 'border-amber-400 shadow-amber-400/20'
+                                            : 'border-blue-400 shadow-blue-400/20'
+                                        }`}>
+                                          <img
+                                            src={member.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=random&size=128&color=ffffff&bold=true`}
+                                            alt={member.name}
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                              e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=random&size=128&color=ffffff&bold=true`;
+                                            }}
+                                          />
+                                        </div>
+                                        {/* Online status indicator */}
+                                        <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-3 border-white dark:border-gray-800 ${
+                                          Math.random() > 0.5 ? 'bg-green-400' : 'bg-gray-400'
+                                        }`}></div>
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <h4 className="text-lg font-bold text-gray-900 dark:text-white truncate mb-1">
+                                          {member.name}
+                                        </h4>
+                                        <p className="text-sm text-gray-600 dark:text-gray-300 truncate font-medium">
+                                          {member.email}
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    {/* Additional info section */}
+                                    <div className="space-y-3">
+                                      <div className="flex items-center justify-between text-sm">
+                                        <span className="text-gray-600 dark:text-gray-400 font-medium">Role</span>
+                                        <span className={`font-semibold ${
+                                          selectedTeam?.admins?.some((admin: any) => admin._id === member._id)
+                                            ? 'text-amber-600 dark:text-amber-400'
+                                            : 'text-blue-600 dark:text-blue-400'
+                                        }`}>
+                                          {selectedTeam?.admins?.some((admin: any) => admin._id === member._id) ? 'Administrator' : 'Team Member'}
+                                        </span>
+                                      </div>
+
+                                      <div className="flex items-center justify-between text-sm">
+                                        <span className="text-gray-600 dark:text-gray-400 font-medium">Status</span>
+                                        <div className="flex items-center space-x-1.5">
+                                          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                                          <span className="text-green-600 dark:text-green-400 font-medium">Active</span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Decorative bottom border */}
+                                    <div className={`mt-4 h-1 rounded-full ${
+                                      selectedTeam?.admins?.some((admin: any) => admin._id === member._id)
+                                        ? 'bg-gradient-to-r from-amber-400 to-orange-500'
+                                        : 'bg-gradient-to-r from-blue-400 to-indigo-500'
+                                    }`}></div>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )) : (
+                              <div className="col-span-full">
+                                <motion.div
+                                  initial={{ opacity: 0, scale: 0.9 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  className="flex flex-col items-center justify-center py-16 px-8 bg-gradient-to-br from-gray-50/80 to-gray-100/80 dark:from-gray-800/80 dark:to-gray-700/80 backdrop-blur-xl rounded-3xl border border-gray-200/50 dark:border-gray-700/50"
+                                >
+                                  <div className="w-20 h-20 bg-gradient-to-br from-gray-400 to-gray-500 rounded-3xl flex items-center justify-center mb-6 shadow-xl">
+                                    <Users className="h-10 w-10 text-white" />
+                                  </div>
+                                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">No Team Members</h3>
+                                  <p className="text-gray-600 dark:text-gray-400 text-center max-w-md leading-relaxed">
+                                    This team doesn't have any members yet. Add members to start collaborating on projects and tasks.
+                                  </p>
+                                </motion.div>
+                              </div>
+                            )}
                           </div>
                         </motion.div>
                       </div>
@@ -1046,7 +1223,7 @@ py-8">
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  Create New Task
+                  Assign New Task
                 </h2>
                 <motion.button
                   whileHover={{ scale: 1.1, rotate: 90 }}
@@ -1057,14 +1234,17 @@ py-8">
                   <X className="h-6 w-6" />
                 </motion.button>
               </div>
-              <div className="space-y-6">
+              <form onSubmit={handleCreateTask} className="space-y-6">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                    Task Title
+                    Task Title *
                   </label>
                   <input
                     type="text"
+                    value={taskTitle}
+                    onChange={(e) => setTaskTitle(e.target.value)}
                     placeholder="Enter task title..."
+                    required
                     className="w-full rounded-2xl border border-gray-200 dark:border-gray-600 px-4 py-3 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
                   />
                 </div>
@@ -1073,20 +1253,44 @@ py-8">
                     Description
                   </label>
                   <textarea
-                    rows={4}
+                    rows={3}
+                    value={taskDescription}
+                    onChange={(e) => setTaskDescription(e.target.value)}
                     placeholder="Describe the task..."
                     className="w-full rounded-2xl border border-gray-200 dark:border-gray-600 px-4 py-3 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 resize-none"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                    Assign to Team Member
+                  </label>
+                  <select
+                    value={taskAssignee}
+                    onChange={(e) => setTaskAssignee(e.target.value)}
+                    className="w-full rounded-2xl border border-gray-200 dark:border-gray-600 px-4 py-3 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+                  >
+                    <option value="">Unassigned</option>
+                    {Array.isArray(selectedTeam?.members) && selectedTeam.members.map((member: any) => (
+                      <option key={member._id} value={member._id}>
+                        {member.name} {selectedTeam?.admins?.some((admin: any) => admin._id === member._id) ? '(Admin)' : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
                       Priority
                     </label>
-                    <select className="w-full rounded-2xl border border-gray-200 dark:border-gray-600 px-4 py-3 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300">
+                    <select
+                      value={taskPriority}
+                      onChange={(e) => setTaskPriority(e.target.value as 'low' | 'medium' | 'high' | 'urgent')}
+                      className="w-full rounded-2xl border border-gray-200 dark:border-gray-600 px-4 py-3 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+                    >
                       <option value="low">Low</option>
                       <option value="medium">Medium</option>
                       <option value="high">High</option>
+                      <option value="urgent">Urgent</option>
                     </select>
                   </div>
                   <div>
@@ -1095,29 +1299,32 @@ py-8">
                     </label>
                     <input
                       type="date"
+                      value={taskDueDate}
+                      onChange={(e) => setTaskDueDate(e.target.value)}
                       className="w-full rounded-2xl border border-gray-200 dark:border-gray-600 px-4 py-3 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
                     />
                   </div>
                 </div>
-              </div>
-              <div className="flex space-x-4 mt-8">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setIsCreateTaskModalOpen(false)}
-                  className="flex-1 px-6 py-3 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 backdrop-blur-sm"
-                >
-                  Cancel
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setIsCreateTaskModalOpen(false)}
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-2xl hover:from-blue-600 hover:to-purple-600 shadow-lg transition-all duration-300"
-                >
-                  Create Task
-                </motion.button>
-              </div>
+                <div className="flex space-x-4 pt-4">
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setIsCreateTaskModalOpen(false)}
+                    className="flex-1 px-6 py-3 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 backdrop-blur-sm"
+                  >
+                    Cancel
+                  </motion.button>
+                  <motion.button
+                    type="submit"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-2xl hover:from-blue-600 hover:to-purple-600 shadow-lg transition-all duration-300"
+                  >
+                    Create Task
+                  </motion.button>
+                </div>
+              </form>
             </motion.div>
           </motion.div>
         )}
