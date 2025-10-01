@@ -8,6 +8,7 @@
     "dev": "nodemon server.js",
     "dev:debug": "nodemon --inspect server.js",
     "dev:verbose": "nodemon --verbose server.js",
+    "build": "echo 'No build step required for production'",
     "test": "jest",
     "test:watch": "jest --watch",
     "seed": "node scripts/seedDatabase.js",
@@ -42,7 +43,8 @@
     "qrcode": "^1.5.3",
     "razorpay": "^2.9.6",
     "redis": "^4.6.10",
-    "socket.io": "^4.7.4"
+    "socket.io": "^4.7.4",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.8",

@@ -24,7 +24,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     if (user) {
       const token = localStorage.getItem('sharespace_token')
       if (token) {
-        const newSocket = io('http://localhost:5000', {
+        const newSocket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000', {
           auth: {
             token
           }
