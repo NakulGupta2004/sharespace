@@ -175,45 +175,6 @@ export default function CreateListingPage() {
     }
   }
 
-  const validateForm = (): boolean => {
-    const newErrors: FormErrors = {}
-
-    if (!formData.title.trim()) newErrors.title = 'Title is required'
-    if (!formData.description.trim()) newErrors.description = 'Description is required'
-    if (!formData.category) newErrors.category = 'Category is required'
-    if (!formData.condition) newErrors.condition = 'Condition is required'
-    if (!formData.pricingType) newErrors.pricingType = 'Pricing type is required'
-
-    // Validate pricing fields based on type
-    if (formData.pricingType === 'rent') {
-      if (!formData.hourlyRate && !formData.dailyRate) {
-        newErrors.pricing = 'At least one rate (hourly or daily) is required for rentals'
-      }
-      if (formData.hourlyRate && parseFloat(formData.hourlyRate) < 0) {
-        newErrors.hourlyRate = 'Rate cannot be negative'
-      }
-      if (formData.dailyRate && parseFloat(formData.dailyRate) < 0) {
-        newErrors.dailyRate = 'Rate cannot be negative'
-      }
-    }
-
-    if (formData.pricingType === 'sell') {
-      if (!formData.sellPrice) {
-        newErrors.sellPrice = 'Sell price is required'
-      } else if (parseFloat(formData.sellPrice) < 0) {
-        newErrors.sellPrice = 'Price cannot be negative'
-      }
-    }
-
-    // Validate images
-    if (selectedFiles.length === 0 && formData.imageUrls.length === 0) {
-      newErrors.images = 'At least one image is required'
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)

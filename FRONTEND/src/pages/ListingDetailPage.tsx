@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { motion } from 'framer-motion'
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Heart, 
-  Share2, 
+import {
+  ChevronLeft,
+  ChevronRight,
+  Heart,
+  Share2,
   Star, 
   Calendar,
   MessageCircle,
@@ -21,9 +20,7 @@ import {
   Gift
 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
-import { Card } from '../components/ui/Card'
 import { useAuth } from '../context/AuthContext'
-import { useSocket } from '../context/SocketContext'
 
 // Interface matching your backend Listing model
 interface Listing {
@@ -101,7 +98,6 @@ export default function ListingDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { sendMessage, isConnected } = useSocket()
   
   const [listing, setListing] = useState<Listing | null>(null)
   const [loading, setLoading] = useState(true)
@@ -133,14 +129,6 @@ export default function ListingDetailPage() {
       currency: 'INR',
       minimumFractionDigits: 0
     }).format(price)
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
   }
 
   const calculateDaysDiff = (start: string, end: string) => {
@@ -193,7 +181,7 @@ export default function ListingDetailPage() {
       if (response.data.success) {
         alert('Booking request sent successfully!');
         setShowBookingModal(false);
-        setBookingData({ startDate: '', endDate: '', notes: '' });
+        setBookingData({ startDate: '', endDate: '', notes: '', barterItem: '' });
         setShowApprovalPopup(true);
         setTimeout(() => setShowApprovalPopup(false), 3500);
       }

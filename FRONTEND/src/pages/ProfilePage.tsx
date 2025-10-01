@@ -29,29 +29,10 @@ import {
   Bell,
   Lock,
   Globe,
-  Sparkles,
   Crown,
   Zap,
   Trophy,
-  Award,
-  Users,
-  Clock,
-  ChevronRight,
-  Plus,
-  BarChart3,
-  PieChart,
-  DollarSign,
-  ShoppingBag,
-  ThumbsUp,
-  Share2,
-  Download,
-  Upload,
-  Link,
-  Github,
-  Twitter,
-  Instagram,
-  Linkedin,
-  Youtube
+  BarChart3
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import toast from 'react-hot-toast'

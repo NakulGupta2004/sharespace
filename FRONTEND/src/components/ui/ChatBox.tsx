@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect } from 'react';
-import { Button } from './Button';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
 import { ChatDialog } from './ChatDialog';

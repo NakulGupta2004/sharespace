@@ -93,7 +93,7 @@ interface DashboardStats {
 
 const DashboardPage: React.FC = () => {
   // Team section state
-  const [teams, setTeams] = useState<Team[]>([]);
+  const [, setTeams] = useState<Team[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [teamLoading, setTeamLoading] = useState(false);
   const [teamError, setTeamError] = useState<string | null>(null);
@@ -102,7 +102,7 @@ const DashboardPage: React.FC = () => {
   const [confirmDeleteTeam, setConfirmDeleteTeam] = useState(false);
   const [listingsTab, setListingsTab] = useState<'history' | 'all'>('history');
   // Add workspace state to control which dashboard to show
-  const [workspace, setWorkspace] = useState<'marketplace' | 'team'>('marketplace');
+  const [workspace] = useState<'marketplace' | 'team'>('marketplace');
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);

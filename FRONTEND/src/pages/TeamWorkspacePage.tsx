@@ -241,8 +241,10 @@ export default function TeamWorkspacePage() {
   }
 
   async function confirmClearChat() {
+    if (!selectedTeam) return;
+
     try {
-      const res = await fetch(`http://localhost:5000/api/teams/${selectedTeam._id}/messages/clear`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/teams/${selectedTeam._id}/messages/clear`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
       });
