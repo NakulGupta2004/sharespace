@@ -683,7 +683,7 @@ py-8">
                         {/* Recent Tasks */}
                         <motion.div
                           variants={itemVariants}
-                          className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-800 dark:to-gray-700 rounded-3xl p-6 shadow-xl border border-white/20"
+                          className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-800 dark:to-gray-700 rounded-3xl p-6 shadow-xl border border-white/20 h-[30rem] flex flex-col"
                         >
                           <div className="flex items-center space-x-3 mb-6">
                             <div className="p-3 bg-blue-500 rounded-2xl">
@@ -693,8 +693,8 @@ py-8">
                               Recent Tasks
                             </h3>
                           </div>
-                          <div className="space-y-4">
-                            {tasks.slice(0, 3).map((task, index) => (
+                          <div className="flex-1 overflow-y-auto space-y-4 pr-2 scrollbar-thin scrollbar-thumb-blue-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
+                            {tasks.map((task, index) => (
                               <motion.div
                                 key={task._id}
                                 initial={{ opacity: 0, x: -20 }}
@@ -724,13 +724,19 @@ py-8">
                                 </div>
                               </motion.div>
                             ))}
+                            {tasks.length === 0 && (
+                              <div className="flex flex-col items-center justify-center py-12 text-center">
+                                <CheckSquare className="h-12 w-12 text-gray-400 mb-4" />
+                                <p className="text-gray-500 dark:text-gray-400">No tasks yet</p>
+                              </div>
+                            )}
                           </div>
                         </motion.div>
 
                         {/* Team Activity */}
                         <motion.div
                           variants={itemVariants}
-                          className="bg-gradient-to-br from-purple-50 to-pink-100 dark:from-gray-800 dark:to-gray-700 rounded-3xl p-6 shadow-xl border border-white/20"
+                          className="bg-gradient-to-br from-purple-50 to-pink-100 dark:from-gray-800 dark:to-gray-700 rounded-3xl p-6 shadow-xl border border-white/20 h-[30rem] flex flex-col"
                         >
                           <div className="flex items-center space-x-3 mb-6">
                             <div className="p-3 bg-purple-500 rounded-2xl">
@@ -740,8 +746,8 @@ py-8">
                               Recent Activity
                             </h3>
                           </div>
-                          <div className="space-y-4">
-                            {recentActivity.slice(0, 3).map((activity, index) => (
+                          <div className="flex-1 overflow-y-auto space-y-4 pr-2 scrollbar-thin scrollbar-thumb-purple-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
+                            {recentActivity.map((activity, index) => (
                               <motion.div
                                 key={activity._id}
                                 initial={{ opacity: 0, x: 20 }}
@@ -767,13 +773,19 @@ py-8">
                                 </div>
                               </motion.div>
                             ))}
+                            {recentActivity.length === 0 && (
+                              <div className="flex flex-col items-center justify-center py-12 text-center">
+                                <MessageSquare className="h-12 w-12 text-gray-400 mb-4" />
+                                <p className="text-gray-500 dark:text-gray-400">No recent activity</p>
+                              </div>
+                            )}
                           </div>
                         </motion.div>
 
                         {/* Team Members */}
                         <motion.div
                           variants={itemVariants}
-                          className="bg-gradient-to-br from-green-50 to-teal-100 dark:from-gray-800 dark:to-gray-700 rounded-3xl p-6 shadow-xl border border-white/20"
+                          className="bg-gradient-to-br from-green-50 to-teal-100 dark:from-gray-800 dark:to-gray-700 rounded-3xl p-6 shadow-xl border border-white/20 h-[30rem] flex flex-col"
                         >
                           <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center space-x-3">
@@ -795,7 +807,8 @@ py-8">
                               </motion.button>
                             )}
                           </div>
-                          <div className="grid gap-8 grid-cols-1">
+                          <div className="flex-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-green-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
+                            <div className="space-y-4">
                             {Array.isArray(selectedTeam?.members) ? selectedTeam.members.map((member: any) => (
                               <motion.div
                                 key={member._id}
@@ -924,6 +937,7 @@ py-8">
                                 </motion.div>
                               </div>
                             )}
+                            </div>
                           </div>
                         </motion.div>
                       </div>

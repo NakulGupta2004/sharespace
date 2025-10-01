@@ -76,6 +76,78 @@ router.post('/add-friend/:friendId', authenticate, async (req, res) => {
   }
 });
 
+// @route   PUT /api/users/profile
+// @desc    Update current user profile
+// @access  Private
+router.put('/profile', authenticate, async (req, res) => {
+  try {
+    const { name, phone, bio, location, social_links } = req.body;
+    
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.userId,
+      {
+        $set: {
+          name,
+          phone,
+          bio,
+          location,
+          social_links
+        }
+      },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: updatedUser
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error updating profile'
+    });
+  }
+});
+
+// @route   GET /api/users/stats
+// @desc    Get user statistics
+// @access  Private
+router.get('/stats', authenticate, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    // You can customize these stats based on your actual models
+    const stats = {
+      totalListings: 12, // Mock data - replace with actual query
+      activeListings: 8,
+      totalViews: 342,
+      totalBookings: 25,
+      rating: 4.8,
+      joinedDate: '2024-01-15'
+    };
+
+    res.json({
+      success: true,
+      stats: stats
+    });
+  } catch (error) {
+    console.error('Get stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching stats'
+    });
+  }
+});
+
 // @route   GET /api/users/all
 // @desc    Get all registered users (for team creation)
 // @access  Private

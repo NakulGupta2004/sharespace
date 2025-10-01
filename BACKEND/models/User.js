@@ -50,6 +50,30 @@ const userSchema = new mongoose.Schema({
       message: 'Please provide a valid phone number'
     }
   },
+  bio: {
+    type: String,
+    trim: true,
+    maxlength: [500, 'Bio cannot exceed 500 characters']
+  },
+  location: {
+    type: String,
+    trim: true,
+    maxlength: [100, 'Location cannot exceed 100 characters']
+  },
+  social_links: {
+    linkedin: {
+      type: String,
+      trim: true
+    },
+    twitter: {
+      type: String,
+      trim: true
+    },
+    instagram: {
+      type: String,
+      trim: true
+    }
+  },
   avatar_url: {
     type: String,
     default: function() {

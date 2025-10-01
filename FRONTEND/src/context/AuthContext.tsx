@@ -6,13 +6,17 @@ import toast from 'react-hot-toast'
 axios.defaults.baseURL = 'http://localhost:5000'
 
 interface User {
+  _id?: string
   id: string
   name: string
   email: string
   college_id: string
   avatar_url?: string
   is_verified: boolean
-  reputation: number
+  reputation: {
+    score: number
+    ratingsCount: number
+  }
   credits: number
 }
 

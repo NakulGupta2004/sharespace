@@ -11,6 +11,7 @@ import ListingDetailPage from './pages/ListingDetailPage';
 import TeamWorkspacePage from './pages/TeamWorkspacePage';
 import ListingPage from './pages/ListingPage';
 import TeamPage from './pages/TeamPage';
+import ProfilePage from './pages/ProfilePage';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import { AuthProvider } from './context/AuthContext';
@@ -42,6 +43,7 @@ function App() {
                     <Route path="/listing/:id" element={<ListingDetailPage />} />
                     <Route path="/listings" element={<ListingPage />} />
                     <Route path="/team/:id" element={<TeamPage />} />
+                    <Route path="/profile" element={<ProfilePage />} />
                   </Routes>
                 ) : (
                   <TeamWorkspacePage />

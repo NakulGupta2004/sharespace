@@ -149,7 +149,7 @@ export default function DashboardPage() {
         pendingBookings: 0,
         activeBookings: 0,
         completedBookings: 0,
-        reputation: user?.reputation || 0
+        reputation: user?.reputation.score || 0
       })
     } finally {
       setIsLoading(false)
@@ -176,7 +176,7 @@ export default function DashboardPage() {
       pendingBookings,
       activeBookings,
       completedBookings,
-      reputation: user?.reputation || 0
+      reputation: user?.reputation.score || 0
     }
   }
 

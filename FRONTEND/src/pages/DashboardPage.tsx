@@ -103,7 +103,7 @@ const DashboardPage: React.FC = () => {
   const [listingsTab, setListingsTab] = useState<'history' | 'all'>('history');
   // Add workspace state to control which dashboard to show
   const [workspace, setWorkspace] = useState<'marketplace' | 'team'>('marketplace');
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [listings, setListings] = useState<Listing[]>([]);
@@ -121,6 +121,14 @@ const DashboardPage: React.FC = () => {
   const [userEarnings, setUserEarnings] = useState<number>(0);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [listingToDelete, setListingToDelete] = useState<string | null>(null);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/login')
+      return
+    }
+  }, [user, authLoading, navigate])
 
   useEffect(() => {
     // Fetch teams for user when switching to team workspace
@@ -152,6 +160,11 @@ const DashboardPage: React.FC = () => {
         setTeamError('Failed to fetch teams');
       }
     } catch (err: any) {
+      if (err.response?.status === 401) {
+        localStorage.removeItem('sharespace_token')
+        navigate('/login')
+        return
+      }
       setTeamError(err.response?.data?.message || 'Failed to fetch teams');
     } finally {
       setTeamLoading(false);
@@ -379,6 +392,17 @@ const DashboardPage: React.FC = () => {
         return 'bg-gray-100 text-gray-800';
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return null;

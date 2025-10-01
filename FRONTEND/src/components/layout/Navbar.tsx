@@ -315,12 +315,14 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
                           <Link
                             to="/profile"
                             className="block rounded px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                            onClick={() => setIsProfileOpen(false)}
                           >
                             Profile
                           </Link>
                           <Link
                             to="/settings"
                             className="block rounded px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                            onClick={() => setIsProfileOpen(false)}
                           >
                             Settings
                           </Link>
