@@ -119,7 +119,7 @@ export default function TeamWorkspacePage() {
   // Fetch users for team creation modal
   useEffect(() => {
     if (showCreateTeamModal) {
-      fetch('http://localhost:5000/api/users/all', {
+      fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/users/all`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
       })
         .then(res => res.json())
@@ -134,7 +134,7 @@ export default function TeamWorkspacePage() {
   // Fetch teams on mount
   async function fetchTeams() {
     try {
-      const res = await fetch('http://localhost:5000/api/teams/my', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/my`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
       });
       const data = await res.json();
@@ -163,7 +163,7 @@ export default function TeamWorkspacePage() {
   async function fetchTasks() {
     if (!selectedTeam) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/teams/${selectedTeam._id}/tasks`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/${selectedTeam._id}/tasks`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
       });
       const data = await res.json();
@@ -177,7 +177,7 @@ export default function TeamWorkspacePage() {
   async function fetchActivity() {
     if (!selectedTeam) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/teams/${selectedTeam._id}/activity`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/${selectedTeam._id}/activity`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
       });
       const data = await res.json();
@@ -191,7 +191,7 @@ export default function TeamWorkspacePage() {
   async function fetchGroupMessages() {
     if (!selectedTeam) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/teams/${selectedTeam._id}/messages`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/${selectedTeam._id}/messages`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
       });
       const data = await res.json();
@@ -266,7 +266,7 @@ export default function TeamWorkspacePage() {
     if (!newContent.trim()) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/teams/messages/${messageId}/edit`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/messages/${messageId}/edit`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -302,7 +302,7 @@ export default function TeamWorkspacePage() {
     if (!messageToDelete) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/teams/messages/${messageToDelete}/delete`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/messages/${messageToDelete}/delete`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
       });
@@ -327,7 +327,7 @@ export default function TeamWorkspacePage() {
     async function fetchResources() {
       if (!selectedTeam) return;
       try {
-        const res = await fetch(`http://localhost:5000/api/teams/${selectedTeam._id}/resources`, {
+        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/${selectedTeam._id}/resources`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
         });
         const data = await res.json();
@@ -447,7 +447,7 @@ export default function TeamWorkspacePage() {
       setIsUploadingDp(false);
     }
     try {
-      const res = await fetch('http://localhost:5000/api/teams/create', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -489,7 +489,7 @@ export default function TeamWorkspacePage() {
       owner: user?.id
     };
     try {
-      const res = await fetch(`http://localhost:5000/api/teams/${selectedTeam._id}/resources`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/${selectedTeam._id}/resources`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -509,7 +509,7 @@ export default function TeamWorkspacePage() {
   async function handleRemoveMember(memberId: string) {
     if (!selectedTeam) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/teams/${selectedTeam._id}/remove-member`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/${selectedTeam._id}/remove-member`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -535,7 +535,7 @@ export default function TeamWorkspacePage() {
     if (!selectedTeam || !taskTitle.trim()) return;
 
     try {
-      const res = await fetch('http://localhost:5000/api/tasks', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tasks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -575,7 +575,7 @@ export default function TeamWorkspacePage() {
     e.preventDefault();
     if (!selectedTeam || !editTeamName.trim()) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/teams/${selectedTeam._id}/update`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/${selectedTeam._id}/update`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -604,7 +604,7 @@ export default function TeamWorkspacePage() {
   async function handleDeleteTeam() {
     if (!selectedTeam) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/teams/${selectedTeam._id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/${selectedTeam._id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}`
