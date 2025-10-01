@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
+  "buildCommand": "bun run build",
   "outputDirectory": "dist",
-  "installCommand": "rm -rf node_modules package-lock.json && npm install",
+  "installCommand": "bun install",
   "framework": null,
   "rewrites": [
     {
