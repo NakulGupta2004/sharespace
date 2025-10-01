@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import axios from 'axios'
+import api from '../utils/api'
 import toast from 'react-hot-toast'
 import { 
   Plus, 
@@ -105,13 +105,13 @@ export default function DashboardPage() {
       setIsLoading(true)
       
       // Fetch user's listings
-      const listingsResponse = await axios.get('/api/listings/my')
+      const listingsResponse = await api.get('/api/listings/my')
       const userListings = listingsResponse.data?.data || listingsResponse.data || []
       
       // Fetch user's bookings (with fallback if not implemented)
       let userBookings = []
       try {
-        const bookingsResponse = await axios.get('/api/bookings/my')
+        const bookingsResponse = await api.get('/api/bookings/my')
         userBookings = bookingsResponse.data?.data || bookingsResponse.data || []
       } catch (bookingError) {
         console.log('Bookings endpoint not available, using empty array')

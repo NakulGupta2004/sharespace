@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import axios from 'axios'
+import api from '../utils/api'
 import {
   Search,
   Grid3X3,
@@ -78,7 +78,7 @@ export default function ListingPage() {
       
       params.append('limit', '50')
 
-      const response = await axios.get(`http://localhost:5000/api/listings?${params}`)
+      const response = await api.get(`/api/listings?${params}`)
       if (response.data.success) {
         setListings(response.data.listings || [])
       }

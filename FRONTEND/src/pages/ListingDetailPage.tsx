@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import axios from 'axios'
+import api from '../utils/api'
 import {
   ChevronLeft,
   ChevronRight,
@@ -212,7 +212,7 @@ export default function ListingDetailPage() {
         return
       }
       
-      const response = await axios.get(`http://localhost:5000/api/listings/${listingId}`)
+      const response = await api.get(`/api/listings/${listingId}`)
       
       if (response.data?.success && response.data?.listing) {
         setListing(response.data.listing)

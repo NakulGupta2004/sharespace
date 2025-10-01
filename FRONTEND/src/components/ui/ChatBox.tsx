@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import axios from 'axios';
+import api from '../../utils/api';
 import { ChatDialog } from './ChatDialog';
 
 interface User {
@@ -20,7 +20,7 @@ export const ChatBox: React.FC<{ onClose: () => void; onSelectUser?: (user: User
 
   useEffect(() => {
     setLoading(true);
-    axios.get('http://localhost:5000/api/users/contacts', {
+    api.get('/api/users/contacts', {
       headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
     })
       .then(res => {

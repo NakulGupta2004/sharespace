@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import axios from 'axios'
+import api from '../utils/api'
 import { 
   Search, 
   BookOpen, 
@@ -83,7 +83,7 @@ export default function HomePage() {
     try {
       setLoading(true)
       // Fetch all available listings (increased limit to show more items)
-      const response = await axios.get('http://localhost:5000/api/listings?limit=20&sort=-createdAt')
+      const response = await api.get('/api/listings?limit=20&sort=-createdAt')
       if (response.data.success) {
         setListings(response.data.listings || [])
       }
@@ -104,7 +104,7 @@ export default function HomePage() {
 
   const fetchCategoryCounts = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/listings/categories/stats')
+      const response = await api.get('/api/listings/categories/stats')
       if (response.data.success) {
         const counts: { [key: string]: number } = {}
         

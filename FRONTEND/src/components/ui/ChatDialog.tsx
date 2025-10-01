@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from './Button';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
-import axios from 'axios';
+import api from '../../utils/api';
 
 interface User {
   _id?: string;
@@ -35,7 +35,7 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({ user: chatUser, onClose 
   useEffect(() => {
     // Fetch conversation history
     if (!chatUser?._id) return;
-    axios.get(`http://localhost:5000/api/messages/conversation/${chatUser._id}/general`)
+    api.get(`/api/messages/conversation/${chatUser._id}/general`)
       .then(res => setMessages(res.data.data || []))
       .catch(err => {
         console.error('Message error:', err);

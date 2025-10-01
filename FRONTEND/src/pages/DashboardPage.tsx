@@ -16,7 +16,7 @@ interface Team {
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../utils/api';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { PaymentButton } from '../components/ui/PaymentButton';
@@ -142,7 +142,7 @@ const DashboardPage: React.FC = () => {
     setTeamLoading(true);
     setTeamError(null);
     try {
-      const response = await axios.get('http://localhost:5000/api/teams/my', {
+      const response = await api.get('/api/teams/my', {
         headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
       });
       if (response.data.success) {
@@ -233,7 +233,7 @@ const DashboardPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(`http://localhost:5000/api/bookings/my`, {
+      const response = await api.get(`/api/bookings/my`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
       });
       if (response && response.data.success) {
@@ -256,7 +256,7 @@ const DashboardPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(`http://localhost:5000/api/bookings/received`, {
+      const response = await api.get(`/api/bookings/received`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
       });
       if (response && response.data.success) {
@@ -278,7 +278,7 @@ const DashboardPage: React.FC = () => {
       setLoading(true);
       setError(null);
       // Fetch only the current user's listings
-      const response = await axios.get(`http://localhost:5000/api/listings/my`, {
+      const response = await api.get(`/api/listings/my`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
       });
       if (response.data.success) {
@@ -322,7 +322,7 @@ const DashboardPage: React.FC = () => {
 
   const refreshUserData = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/users/profile', {
+      const response = await api.get('/api/users/profile', {
         headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
       });
       

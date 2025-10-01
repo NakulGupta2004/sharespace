@@ -1,9 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import axios from 'axios'
+import api from '../utils/api'
 import toast from 'react-hot-toast'
-
-// Configure axios base URL
-axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
 interface User {
   _id?: string
@@ -55,12 +52,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-      const response = await axios.get('/api/auth/me')
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+      const response = await api.get('/api/auth/me')
       setUser(response.data.user)
     } catch (error) {
       localStorage.removeItem('sharespace_token')
-      delete axios.defaults.headers.common['Authorization']
+      delete api.defaults.headers.common['Authorization']
       setUser(null)
     } finally {
       setLoading(false)
@@ -69,11 +66,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const response = await axios.post('/api/auth/login', { email, password })
+      const response = await api.post('/api/auth/login', { email, password })
       const { token, user } = response.data
 
       localStorage.setItem('sharespace_token', token)
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`
       setUser(user)
       toast.success('Welcome back!')
       return true
@@ -85,13 +82,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (userData: RegisterData): Promise<boolean> => {
     try {
-      const response = await axios.post('/api/auth/register', userData)
+      const response = await api.post('/api/auth/register', userData)
       const { token, user } = response.data
       
       // If registration includes immediate login (development mode)
       if (token && user) {
         localStorage.setItem('sharespace_token', token)
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`
         setUser(user)
         toast.success('Registration successful! Welcome to ShareSpace!')
       } else {
@@ -106,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem('sharespace_token')
-    delete axios.defaults.headers.common['Authorization']
+    delete api.defaults.headers.common['Authorization']
     setUser(null)
     toast.success('Logged out successfully')
   }

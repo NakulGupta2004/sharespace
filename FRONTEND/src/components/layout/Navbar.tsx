@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../utils/api';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -40,7 +40,7 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
   useEffect(() => {
     if (!isChatOpen) return;
     setLoading(true);
-    axios.get('http://localhost:5000/api/users/contacts', {
+    api.get('/api/users/contacts', {
       headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
     })
       .then(res => {
