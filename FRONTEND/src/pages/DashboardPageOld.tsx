@@ -186,7 +186,7 @@ export default function DashboardPage() {
     }
     
     try {
-      await axios.delete(`/api/listings/${listingId}`)
+      await api.delete(`/api/listings/${listingId}`)
       toast.success('Listing deleted successfully')
       fetchDashboardData() // Refresh data
     } catch (error) {

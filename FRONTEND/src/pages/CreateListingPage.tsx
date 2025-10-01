@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
+import api from '../utils/api'
 import { uploadImageToCloudinary } from '../utils/cloudinaryService'
 import { 
   Upload, 
@@ -224,7 +224,7 @@ export default function CreateListingPage() {
         image_urls: imageUrls
       }
 
-      const response = await axios.post('/api/listings', payload)
+      const response = await api.post('/api/listings', payload)
       const data = response.data
 
       if (data.success) {

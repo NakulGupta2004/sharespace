@@ -174,7 +174,7 @@ const DashboardPage: React.FC = () => {
   // Remove member (admin only)
   const handleRemoveMember = async (teamId: string, memberId: string) => {
     try {
-      const response = await axios.post(`http://localhost:5000/api/teams/${teamId}/remove-member`, {
+      const response = await api.post(`/api/teams/${teamId}/remove-member`, {
         memberId
       }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
@@ -195,7 +195,7 @@ const DashboardPage: React.FC = () => {
   // Delete team (admin only)
   const handleDeleteTeam = async (teamId: string) => {
     try {
-      const response = await axios.delete(`http://localhost:5000/api/teams/${teamId}`, {
+      const response = await api.delete(`/api/teams/${teamId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
       });
       
@@ -297,8 +297,8 @@ const DashboardPage: React.FC = () => {
 
   const updateBookingStatus = async (bookingId: string, status: 'confirmed' | 'cancelled') => {
     try {
-      const response = await axios.put(
-        `http://localhost:5000/api/bookings/${bookingId}/status`,
+      const response = await api.put(
+        `/api/bookings/${bookingId}/status`,
         { status },
         {
           headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
@@ -965,7 +965,7 @@ const DashboardPage: React.FC = () => {
                                       onClick={async () => {
                                         try {
                                           const newStatus = listing.isActive ? false : true;
-                                          await axios.put(`http://localhost:5000/api/listings/${listing._id}/status`, { isActive: newStatus }, {
+                                          await api.put(`/api/listings/${listing._id}/status`, { isActive: newStatus }, {
                                             headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
                                           });
                                           alert(`Listing is now ${newStatus ? 'Public' : 'Private'}.`);
@@ -1165,7 +1165,7 @@ const DashboardPage: React.FC = () => {
         onConfirm={async () => {
           if (listingToDelete) {
             try {
-              await axios.delete(`http://localhost:5000/api/listings/${listingToDelete}`, {
+              await api.delete(`/api/listings/${listingToDelete}`, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
               });
               setConfirmOpen(false);

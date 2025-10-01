@@ -82,7 +82,7 @@ export default function ListingDetailPage() {
       const token = localStorage.getItem('sharespace_token');
       const ownerId = listing?.ownerId?._id;
       if (!ownerId) return;
-      const response = await axios.post(`http://localhost:5000/api/users/add-friend/${ownerId}`, {}, {
+      const response = await api.post(`/api/users/add-friend/${ownerId}`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.data.success) {
@@ -175,7 +175,7 @@ export default function ListingDetailPage() {
     setBookingLoading(true);
     try {
       const token = localStorage.getItem('sharespace_token');
-      const response = await axios.post('http://localhost:5000/api/bookings', payload, {
+      const response = await api.post('/api/bookings', payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.data.success) {
