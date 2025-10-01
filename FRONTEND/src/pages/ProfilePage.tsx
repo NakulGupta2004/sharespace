@@ -75,12 +75,12 @@ const ProfilePage = () => {
     }
   })
   const [stats, setStats] = useState({
-    totalListings: 0,
-    activeListings: 0,
-    totalViews: 0,
-    totalBookings: 0,
-    rating: 0,
-    joinedDate: ''
+    totalListings: 12,
+    activeListings: 8,
+    totalViews: 342,
+    totalBookings: 25,
+    rating: 4.8,
+    joinedDate: '2024-01-15'
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -139,14 +139,16 @@ const ProfilePage = () => {
         }
 
         // Mock stats for now - you can implement real stats later
-        setStats({
+        const mockStats = {
           totalListings: 12,
           activeListings: 8,
           totalViews: 342,
           totalBookings: 25,
           rating: 4.8,
           joinedDate: '2024-01-15'
-        })
+        }
+        setStats(mockStats)
+        console.log('Stats loaded:', mockStats)
       } catch (error: any) {
         console.error('Error fetching profile data:', error)
         if (error.status === 401 || error.message?.includes('401')) {
@@ -580,6 +582,53 @@ const ProfilePage = () => {
           </div>
         </motion.div>
 
+        {/* Persistent Stats Grid - Always Visible */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mb-8"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <StatCard
+              icon={Package}
+              label="Total Listings"
+              value={stats.totalListings}
+              color="bg-gradient-to-r from-blue-500 to-blue-600"
+              bgColor="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20"
+              trend="+12%"
+              description="Active marketplace items"
+            />
+            <StatCard
+              icon={Eye}
+              label="Profile Views"
+              value={stats.totalViews}
+              color="bg-gradient-to-r from-green-500 to-green-600"
+              bgColor="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20"
+              trend="+8%"
+              description="People viewed your profile"
+            />
+            <StatCard
+              icon={BookOpen}
+              label="Bookings"
+              value={stats.totalBookings}
+              color="bg-gradient-to-r from-purple-500 to-purple-600"
+              bgColor="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20"
+              trend="+15%"
+              description="Successful transactions"
+            />
+            <StatCard
+              icon={Star}
+              label="Rating"
+              value={`${stats.rating.toFixed(1)}/5`}
+              color="bg-gradient-to-r from-yellow-500 to-yellow-600"
+              bgColor="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20"
+              trend="+0.2"
+              description="Average user rating"
+            />
+          </div>
+        </motion.div>
+
         {/* Tab Content */}
         <AnimatePresence mode="wait">
           {activeTab === 'overview' && (
@@ -591,46 +640,6 @@ const ProfilePage = () => {
               transition={{ duration: 0.4 }}
               className="space-y-8"
             >
-              {/* Enhanced Stats Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard
-                  icon={Package}
-                  label="Total Listings"
-                  value={stats.totalListings}
-                  color="bg-gradient-to-r from-blue-500 to-blue-600"
-                  bgColor="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20"
-                  trend="+12%"
-                  description="Active marketplace items"
-                />
-                <StatCard
-                  icon={Eye}
-                  label="Profile Views"
-                  value={stats.totalViews}
-                  color="bg-gradient-to-r from-green-500 to-green-600"
-                  bgColor="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20"
-                  trend="+8%"
-                  description="People viewed your profile"
-                />
-                <StatCard
-                  icon={BookOpen}
-                  label="Bookings"
-                  value={stats.totalBookings}
-                  color="bg-gradient-to-r from-purple-500 to-purple-600"
-                  bgColor="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20"
-                  trend="+15%"
-                  description="Successful transactions"
-                />
-                <StatCard
-                  icon={Star}
-                  label="Rating"
-                  value={`${stats.rating.toFixed(1)}/5`}
-                  color="bg-gradient-to-r from-yellow-500 to-yellow-600"
-                  bgColor="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20"
-                  trend="+0.2"
-                  description="Average user rating"
-                />
-              </div>
-
               {/* Profile Details & Quick Actions */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Profile Information */}

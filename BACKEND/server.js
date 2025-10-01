@@ -120,6 +120,18 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Join user to a specific team room
+  socket.on('join_team', (teamId) => {
+    console.log(`User ${socket.userId} joining team room: team_${teamId}`);
+    socket.join(`team_${teamId}`);
+  });
+
+  // Leave a specific team room
+  socket.on('leave_team', (teamId) => {
+    console.log(`User ${socket.userId} leaving team room: team_${teamId}`);
+    socket.leave(`team_${teamId}`);
+  });
+
   // Handle booking events
   socket.on('booking_request', (data) => {
     // Emit to item owner
@@ -171,6 +183,61 @@ io.on('connection', (socket) => {
       console.error('Socket message error:', error);
       socket.emit('message_error', { error: error.message || 'Failed to send message' });
     }
+  });
+
+  // Handle team messages
+  socket.on('send_team_message', async (data) => {
+    try {
+      const { teamId, content } = data;
+      if (!teamId || !content || content.trim().length === 0) {
+        throw new Error('Missing required fields: teamId or content');
+      }
+
+      // Check if user is a member of the team
+      const Team = require('./models/Team');
+      const team = await Team.findById(teamId);
+      if (!team || !team.members.includes(socket.userId)) {
+        throw new Error('User is not a member of this team');
+      }
+
+      // Save team message to database
+      const Message = require('./models/Message');
+      const message = new Message({
+        senderId: socket.userId,
+        teamId: teamId,
+        content: content.trim(),
+        type: 'group'
+      });
+
+      await message.save();
+      await message.populate('senderId', 'name email');
+
+      // Emit to all team members in the team room
+      socket.to(`team_${teamId}`).emit('new_team_message', {
+        message,
+        teamId,
+        senderId: socket.userId
+      });
+
+      // Also emit to sender (for UI consistency)
+      socket.emit('team_message_sent', { message });
+
+    } catch (error) {
+      console.error('Socket team message error:', error);
+      socket.emit('team_message_error', { error: error.message || 'Failed to send team message' });
+    }
+  });
+
+  // Handle joining team rooms
+  socket.on('join_team', (teamId) => {
+    socket.join(`team_${teamId}`);
+    console.log(`User ${socket.userId} joined team room: team_${teamId}`);
+  });
+
+  // Handle leaving team rooms
+  socket.on('leave_team', (teamId) => {
+    socket.leave(`team_${teamId}`);
+    console.log(`User ${socket.userId} left team room: team_${teamId}`);
   });
 
   // Handle typing indicators

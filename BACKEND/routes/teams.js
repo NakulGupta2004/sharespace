@@ -265,4 +265,178 @@ router.get('/:teamId/activity', authenticate, async (req, res) => {
   }
 });
 
+// Get team messages
+router.get('/:teamId/messages', authenticate, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const team = await Team.findById(req.params.teamId);
+    
+    if (!team) return res.status(404).json({ success: false, error: 'Team not found' });
+    if (!team.members.includes(userId)) return res.status(403).json({ success: false, error: 'Not a team member' });
+    
+    const Message = require('../models/Message');
+    const messages = await Message.find({ 
+      teamId: req.params.teamId,
+      type: 'group'
+    })
+      .populate('senderId', 'name email')
+      .sort({ createdAt: 1 })
+      .limit(100);
+    
+    res.json({ success: true, messages });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Send team message
+router.post('/:teamId/messages', authenticate, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { content } = req.body;
+    
+    if (!content || !content.trim()) {
+      return res.status(400).json({ success: false, error: 'Message content is required' });
+    }
+    
+    const team = await Team.findById(req.params.teamId);
+    
+    if (!team) return res.status(404).json({ success: false, error: 'Team not found' });
+    if (!team.members.includes(userId)) return res.status(403).json({ success: false, error: 'Not a team member' });
+    
+    const Message = require('../models/Message');
+    const message = new Message({
+      senderId: userId,
+      teamId: req.params.teamId,
+      content: content.trim(),
+      type: 'group'
+    });
+    
+    await message.save();
+    
+    // Populate sender info for response
+    await message.populate('senderId', 'name email');
+    
+    res.json({ success: true, message });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Clear all messages in a team (admin only)
+router.delete('/:teamId/messages/clear', authenticate, async (req, res) => {
+  try {
+    const { teamId } = req.params;
+    const userId = req.user.userId;
+    const io = req.app.get('io');
+
+    // Check if user is admin of the team
+    const team = await Team.findById(teamId);
+    if (!team) {
+      return res.status(404).json({ success: false, message: 'Team not found' });
+    }
+
+    if (!team.admins.some(admin => admin.toString() === userId.toString())) {
+      return res.status(403).json({ success: false, message: 'Only admins can clear chat' });
+    }
+
+    // Delete all messages in the team
+    const Message = require('../models/Message');
+    await Message.deleteMany({ teamId: teamId, type: 'group' });
+
+    // Notify all team members via socket
+    if (io) {
+      console.log(`Emitting chatCleared to room: team_${teamId}`);
+      io.to(`team_${teamId}`).emit('chatCleared', { clearedBy: req.user.name });
+    }
+
+    res.json({ success: true, message: 'Chat cleared successfully' });
+  } catch (error) {
+    console.error('Error clearing chat:', error);
+    res.status(500).json({ success: false, message: 'Failed to clear chat' });
+  }
+});
+
+// Edit message (sender only)
+router.put('/messages/:messageId/edit', authenticate, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { content } = req.body;
+    const userId = req.user.userId;
+    const io = req.app.get('io');
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ success: false, message: 'Message content is required' });
+    }
+
+    // Find message and check ownership
+    const Message = require('../models/Message');
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ success: false, message: 'Message not found' });
+    }
+
+    if (message.senderId.toString() !== userId.toString()) {
+      return res.status(403).json({ success: false, message: 'You can only edit your own messages' });
+    }
+
+    // Update message
+    message.content = content.trim();
+    message.edited = true;
+    await message.save();
+
+    // Populate sender info for response
+    await message.populate('senderId', 'name email');
+
+    // Notify team members via socket
+    if (io) {
+      console.log(`Emitting messageEdited to room: team_${message.teamId.toString()}`);
+      io.to(`team_${message.teamId.toString()}`).emit('messageEdited', {
+        messageId,
+        content: message.content,
+        edited: true
+      });
+    }
+
+    res.json({ success: true, message });
+  } catch (error) {
+    console.error('Error editing message:', error);
+    res.status(500).json({ success: false, message: 'Failed to edit message' });
+  }
+});
+
+// Delete message (sender only)
+router.delete('/messages/:messageId/delete', authenticate, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.user.userId;
+    const io = req.app.get('io');
+
+    // Find message and check ownership
+    const Message = require('../models/Message');
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ success: false, message: 'Message not found' });
+    }
+
+    if (message.senderId.toString() !== userId.toString()) {
+      return res.status(403).json({ success: false, message: 'You can only delete your own messages' });
+    }
+
+    // Delete message
+    await Message.findByIdAndDelete(messageId);
+
+    // Notify team members via socket
+    if (io) {
+      console.log(`Emitting messageDeleted to room: team_${message.teamId.toString()}`);
+      io.to(`team_${message.teamId.toString()}`).emit('messageDeleted', { messageId });
+    }
+
+    res.json({ success: true, message: 'Message deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete message' });
+  }
+});
+
 module.exports = router;

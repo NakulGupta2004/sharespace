@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import {
   Users,
   Plus,
@@ -8,6 +9,7 @@ import {
   CheckSquare,
   Package,
   MessageSquare,
+  MessageCircle,
   User,
   Settings,
   Search,
@@ -15,7 +17,10 @@ import {
   MoreVertical,
   X,
   Crown,
-  Clock
+  Clock,
+  Edit2,
+  Trash2,
+  RotateCcw
 } from 'lucide-react';
 
 // TypeScript interfaces
@@ -61,8 +66,17 @@ interface Activity {
   createdAt: string;
 }
 
+interface GroupMessage {
+  _id: string;
+  senderId: { _id: string; name: string; email: string };
+  content: string;
+  createdAt: string;
+  edited?: boolean;
+}
+
 export default function TeamWorkspacePage() {
   const { user } = useAuth();
+  const { socket, isConnected, sendTeamMessage, joinTeam, leaveTeam } = useSocket();
   // User selection for team creation
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
   const [allUsers, setAllUsers] = useState<{_id: string, name: string, email: string, avatar_url?: string}[]>([]);
@@ -74,7 +88,7 @@ export default function TeamWorkspacePage() {
   const [teamDpFile, setTeamDpFile] = useState<File | null>(null);
   const [adminUserIds, setAdminUserIds] = useState<string[]>([]);
   const [isUploadingDp, setIsUploadingDp] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'tasks' | 'inventory' | 'activity'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'tasks' | 'inventory' | 'activity' | 'groupchat'>('overview');
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [taskFilter, setTaskFilter] = useState<string>('all');
@@ -87,12 +101,20 @@ export default function TeamWorkspacePage() {
   const [resources, setResources] = useState<Resource[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
+  const [groupMessages, setGroupMessages] = useState<GroupMessage[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState('');
   const [showAddResourceModal, setShowAddResourceModal] = useState(false);
   const [isEditingTeam, setIsEditingTeam] = useState(false);
   const [editTeamName, setEditTeamName] = useState('');
   const [editTeamDesc, setEditTeamDesc] = useState('');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showClearChatConfirm, setShowClearChatConfirm] = useState(false);
+  const [showDeleteMessageConfirm, setShowDeleteMessageConfirm] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
 
   // Fetch users for team creation modal
   useEffect(() => {
@@ -166,6 +188,137 @@ export default function TeamWorkspacePage() {
     }
   }
 
+  async function fetchGroupMessages() {
+    if (!selectedTeam) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/teams/${selectedTeam._id}/messages`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
+      });
+      const data = await res.json();
+      if (data.success) setGroupMessages(data.messages);
+      else setGroupMessages([]);
+    } catch {
+      setGroupMessages([]);
+    }
+  }
+
+  async function sendGroupMessage() {
+    if (!selectedTeam || !newMessage.trim() || !socket || !isConnected) return;
+
+    const messageContent = newMessage.trim();
+    setIsSendingMessage(true);
+
+    // Optimistic UI update
+    const optimisticMessage: GroupMessage = {
+      _id: `temp_${Date.now()}`,
+      senderId: {
+        _id: user?._id || '',
+        name: user?.name || 'You',
+        email: user?.email || ''
+      },
+      content: messageContent,
+      createdAt: new Date().toISOString()
+    };
+
+    setGroupMessages(prev => [...prev, optimisticMessage]);
+    setNewMessage('');
+
+    try {
+      sendTeamMessage(selectedTeam._id, messageContent);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      // Remove optimistic message on error
+      setGroupMessages(prev => prev.filter(msg => msg._id !== optimisticMessage._id));
+      setNewMessage(messageContent); // Restore message
+    } finally {
+      setIsSendingMessage(false);
+    }
+  }
+
+  async function clearGroupChat() {
+    if (!selectedTeam) return;
+    setShowClearChatConfirm(true);
+  }
+
+  async function confirmClearChat() {
+    try {
+      const res = await fetch(`http://localhost:5000/api/teams/${selectedTeam._id}/messages/clear`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        setGroupMessages([]);
+        setShowClearChatConfirm(false);
+      } else {
+        alert(data.message || 'Failed to clear chat');
+      }
+    } catch (error) {
+      console.error('Error clearing chat:', error);
+      alert('Failed to clear chat');
+    }
+  }
+
+  async function editGroupMessage(messageId: string, newContent: string) {
+    if (!newContent.trim()) return;
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/teams/messages/${messageId}/edit`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}`
+        },
+        body: JSON.stringify({ content: newContent.trim() })
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        setGroupMessages(prev => prev.map(msg => 
+          msg._id === messageId 
+            ? { ...msg, content: newContent.trim(), edited: true }
+            : msg
+        ));
+        setEditingMessageId(null);
+        setEditingContent('');
+      } else {
+        alert(data.message || 'Failed to edit message');
+      }
+    } catch (error) {
+      console.error('Error editing message:', error);
+      alert('Failed to edit message');
+    }
+  }
+
+  async function deleteGroupMessage(messageId: string) {
+    setMessageToDelete(messageId);
+    setShowDeleteMessageConfirm(true);
+  }
+
+  async function confirmDeleteMessage() {
+    if (!messageToDelete) return;
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/teams/messages/${messageToDelete}/delete`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        setGroupMessages(prev => prev.filter(msg => msg._id !== messageToDelete));
+        setShowDeleteMessageConfirm(false);
+        setMessageToDelete(null);
+      } else {
+        alert(data.message || 'Failed to delete message');
+      }
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      alert('Failed to delete message');
+    }
+  }
+
   // Fetch resources, tasks, activity for selected team
   useEffect(() => {
     if (!selectedTeam) return;
@@ -183,9 +336,85 @@ export default function TeamWorkspacePage() {
       }
     }
     if (activeTab === 'inventory') fetchResources();
-    if (activeTab === 'tasks') fetchTasks();
-    if (activeTab === 'activity') fetchActivity();
+    // Fetch tasks and activity for overview tab as well
+    if (activeTab === 'tasks' || activeTab === 'overview') fetchTasks();
+    if (activeTab === 'activity' || activeTab === 'overview') fetchActivity();
+    if (activeTab === 'groupchat') fetchGroupMessages();
   }, [selectedTeam, activeTab]);
+
+  // Socket event listeners
+  useEffect(() => {
+    if (!socket || !isConnected) return;
+
+    const handleNewTeamMessage = (data: any) => {
+      console.log('Received new team message:', data);
+      if (data.teamId === selectedTeam?._id) {
+        setGroupMessages(prev => [...prev, data.message]);
+      }
+    };
+
+    const handleTeamMessageSent = (data: any) => {
+      console.log('Team message sent:', data);
+      // Message is already added to UI via optimistic update
+    };
+
+    const handleTeamMessageError = (data: any) => {
+      console.error('Team message error:', data);
+      // Could show error toast here
+    };
+
+    const handleMessageEdited = (data: { messageId: string; content: string; edited: boolean }) => {
+      console.log('Message edited event received:', data);
+      setGroupMessages(prev => prev.map(msg =>
+        msg._id === data.messageId
+          ? { ...msg, content: data.content, edited: data.edited }
+          : msg
+      ));
+    };
+
+    const handleMessageDeleted = (data: { messageId: string }) => {
+      console.log('Message deleted event received:', data);
+      setGroupMessages(prev => prev.filter(msg => msg._id !== data.messageId));
+    };
+
+    const handleChatCleared = (data: { clearedBy: string }) => {
+      console.log('Chat cleared event received:', data);
+      setGroupMessages([]);
+      // Could show a toast notification here
+      console.log(`Chat cleared by ${data.clearedBy}`);
+    };
+
+    socket.on('new_team_message', handleNewTeamMessage);
+    socket.on('team_message_sent', handleTeamMessageSent);
+    socket.on('team_message_error', handleTeamMessageError);
+    socket.on('messageEdited', handleMessageEdited);
+    socket.on('messageDeleted', handleMessageDeleted);
+    socket.on('chatCleared', handleChatCleared);
+
+    return () => {
+      socket.off('new_team_message', handleNewTeamMessage);
+      socket.off('team_message_sent', handleTeamMessageSent);
+      socket.off('team_message_error', handleTeamMessageError);
+      socket.off('messageEdited', handleMessageEdited);
+      socket.off('messageDeleted', handleMessageDeleted);
+      socket.off('chatCleared', handleChatCleared);
+    };
+  }, [socket, isConnected, selectedTeam]);
+
+  // Join/leave team rooms when team changes
+  useEffect(() => {
+    if (!socket || !isConnected || !selectedTeam) return;
+
+    console.log('Joining team room:', selectedTeam._id);
+    joinTeam(selectedTeam._id);
+
+    return () => {
+      if (selectedTeam) {
+        console.log('Leaving team room:', selectedTeam._id);
+        leaveTeam(selectedTeam._id);
+      }
+    };
+  }, [socket, isConnected, selectedTeam, joinTeam, leaveTeam]);
 
   // Create team handler
   async function handleCreateTeam(e: React.FormEvent<HTMLFormElement>) {
@@ -413,7 +642,8 @@ export default function TeamWorkspacePage() {
     { id: 'overview', label: 'Overview', icon: Users },
     { id: 'tasks', label: 'Tasks', icon: CheckSquare },
     { id: 'inventory', label: 'Inventory', icon: Package },
-    { id: 'activity', label: 'Activity', icon: MessageSquare }
+    { id: 'activity', label: 'Activity', icon: MessageSquare },
+    { id: 'groupchat', label: 'Group Chat', icon: MessageCircle }
   ];
 
   const priorityColors: Record<string, string> = {
@@ -1209,6 +1439,187 @@ py-8">
                       </motion.div>
                     </motion.div>
                   )}
+
+                  {/* Group Chat Tab */}
+                  {activeTab === 'groupchat' && (
+                    <motion.div
+                      key="groupchat"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.4 }}
+                      className="space-y-4"
+                    >
+                      <motion.div
+                        variants={containerVariants}
+                        initial="hidden"
+                        animate="visible"
+                        className="bg-white/70 dark:bg-gray-700/70 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 p-6"
+                      >
+                        <div className="flex items-center justify-between mb-6">
+                          <div className="flex items-center space-x-3">
+                            <MessageCircle className="h-6 w-6 text-blue-500" />
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                              Team Chat
+                            </h3>
+                          </div>
+                          
+                          {/* Clear Chat Button (Admin Only) */}
+                          {selectedTeam?.admins?.some(admin => admin._id === user?.id) && (
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={clearGroupChat}
+                              className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                              title="Clear Chat (Admin Only)"
+                            >
+                              <RotateCcw className="h-5 w-5" />
+                            </motion.button>
+                          )}
+                        </div>
+
+                        {/* Messages Container */}
+                        <div className="h-96 overflow-y-auto space-y-3 mb-4 p-4">
+                          {groupMessages.length === 0 ? (
+                            <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+                              <MessageCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                              <p>No messages yet. Start the conversation!</p>
+                            </div>
+                          ) : (
+                            groupMessages.map((message) => {
+                              const isOwnMessage = message.senderId._id === user?.id;
+                              const isEditing = editingMessageId === message._id;
+                              
+                              return (
+                                <motion.div
+                                  key={message._id}
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} group`}
+                                >
+                                  <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl relative shadow-sm ${
+                                    isOwnMessage
+                                      ? 'bg-blue-500 text-white rounded-br-md ml-12'
+                                      : 'bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white rounded-bl-md mr-12'
+                                  }`}>
+                                    {/* Message Header */}
+                                    <div className="flex items-center justify-between mb-1">
+                                      <div className="flex items-center space-x-2">
+                                        {!isOwnMessage && (
+                                          <span className="text-xs font-medium text-green-600 dark:text-green-400">
+                                            {message.senderId.name}
+                                          </span>
+                                        )}
+                                        <span className={`text-xs ${isOwnMessage ? 'opacity-70 text-blue-100' : 'opacity-50 text-gray-500 dark:text-gray-400'}`}>
+                                          {new Date(message.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                        </span>
+                                        {message.edited && (
+                                          <span className={`text-xs ${isOwnMessage ? 'opacity-50 text-blue-200' : 'opacity-50 text-gray-400'}`}>(edited)</span>
+                                        )}
+                                      </div>
+                                      
+                                      {/* Edit/Delete Menu (only for own messages) */}
+                                      {isOwnMessage && !isEditing && (
+                                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <div className="relative">
+                                            <button
+                                              onClick={() => {
+                                                setEditingMessageId(message._id);
+                                                setEditingContent(message.content);
+                                              }}
+                                              className="p-1 hover:bg-white/20 rounded transition-colors"
+                                              title="Edit message"
+                                            >
+                                              <Edit2 className="h-3 w-3" />
+                                            </button>
+                                            <button
+                                              onClick={() => deleteGroupMessage(message._id)}
+                                              className="p-1 hover:bg-red-500/30 rounded ml-1 transition-colors"
+                                              title="Delete message"
+                                            >
+                                              <Trash2 className="h-3 w-3" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Message Content */}
+                                    {isEditing ? (
+                                      <div className="space-y-2">
+                                        <textarea
+                                          value={editingContent}
+                                          onChange={(e) => setEditingContent(e.target.value)}
+                                          className="w-full bg-transparent border-none outline-none resize-none text-sm"
+                                          rows={Math.min(editingContent.split('\n').length + 1, 4)}
+                                          autoFocus
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                              e.preventDefault();
+                                              editGroupMessage(message._id, editingContent);
+                                            } else if (e.key === 'Escape') {
+                                              setEditingMessageId(null);
+                                              setEditingContent('');
+                                            }
+                                          }}
+                                        />
+                                        <div className="flex justify-end space-x-2">
+                                          <button
+                                            onClick={() => {
+                                              setEditingMessageId(null);
+                                              setEditingContent('');
+                                            }}
+                                            className="px-2 py-1 text-xs bg-gray-500 text-white rounded"
+                                          >
+                                            Cancel
+                                          </button>
+                                          <button
+                                            onClick={() => editGroupMessage(message._id, editingContent)}
+                                            className="px-2 py-1 text-xs bg-blue-500 text-white rounded"
+                                          >
+                                            Save
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>
+                                    )}
+                                  </div>
+                                </motion.div>
+                              );
+                            })
+                          )}
+                        </div>
+
+                        {/* Message Input */}
+                        <div className="flex space-x-2">
+                          <input
+                            type="text"
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && sendGroupMessage()}
+                            placeholder="Type your message..."
+                            className="flex-1 px-4 py-2 bg-white/50 dark:bg-gray-600/50 border border-gray-200 dark:border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            disabled={isSendingMessage}
+                          />
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={sendGroupMessage}
+                            disabled={!newMessage.trim() || isSendingMessage}
+                            className="px-6 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white rounded-xl font-medium transition-colors duration-200 flex items-center space-x-2"
+                          >
+                            {isSendingMessage ? (
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <MessageCircle className="h-4 w-4" />
+                            )}
+                            <span>Send</span>
+                          </motion.button>
+                        </div>
+                      </motion.div>
+                    </motion.div>
+                  )}
                 </AnimatePresence>
               </div>
             </motion.div>
@@ -1788,6 +2199,111 @@ py-8">
                   </div>
                 </div>
               )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Clear Chat Confirmation Modal */}
+      <AnimatePresence>
+        {showClearChatConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowClearChatConfirm(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 max-w-md w-full p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center">
+                <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <RotateCcw className="w-8 h-8 text-red-600 dark:text-red-400" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                  Clear All Messages
+                </h3>
+                <p className="text-gray-600 dark:text-gray-300 mb-6">
+                  This will permanently delete all messages in this team chat. This action cannot be undone.
+                </p>
+                <div className="flex space-x-3">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setShowClearChatConfirm(false)}
+                    className="flex-1 px-4 py-3 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Cancel
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={confirmClearChat}
+                    className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors"
+                  >
+                    Clear Chat
+                  </motion.button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Message Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteMessageConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowDeleteMessageConfirm(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 max-w-md w-full p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center">
+                <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Trash2 className="w-8 h-8 text-orange-600 dark:text-orange-400" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                  Delete Message
+                </h3>
+                <p className="text-gray-600 dark:text-gray-300 mb-6">
+                  Are you sure you want to delete this message? This action cannot be undone.
+                </p>
+                <div className="flex space-x-3">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      setShowDeleteMessageConfirm(false);
+                      setMessageToDelete(null);
+                    }}
+                    className="flex-1 px-4 py-3 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Cancel
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={confirmDeleteMessage}
+                    className="flex-1 px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-medium transition-colors"
+                  >
+                    Delete
+                  </motion.button>
+                </div>
+              </div>
             </motion.div>
           </motion.div>
         )}

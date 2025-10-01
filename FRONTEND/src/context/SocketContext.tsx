@@ -6,8 +6,11 @@ interface SocketContextType {
   socket: Socket | null
   isConnected: boolean
   sendMessage: (receiverId: string, listingId: string, content: string) => void
+  sendTeamMessage: (teamId: string, content: string) => void
   joinRoom: (roomId: string) => void
   leaveRoom: (roomId: string) => void
+  joinTeam: (teamId: string) => void
+  leaveTeam: (teamId: string) => void
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined)
@@ -43,6 +46,19 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
           // You can emit a custom event or use a callback here
         })
 
+        newSocket.on('new_team_message', (data) => {
+          console.log('New team message received:', data)
+          // Handle incoming team messages
+        })
+
+        newSocket.on('team_message_sent', (data) => {
+          console.log('Team message sent confirmation:', data)
+        })
+
+        newSocket.on('team_message_error', (data) => {
+          console.log('Team message error:', data)
+        })
+
         newSocket.on('message_sent', (data) => {
           console.log('Message sent confirmation:', data)
         })
@@ -57,6 +73,18 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
         newSocket.on('user_stopped_typing', (data) => {
           console.log('User stopped typing:', data)
+        })
+
+        newSocket.on('messageEdited', (data) => {
+          console.log('Message edited:', data)
+        })
+
+        newSocket.on('messageDeleted', (data) => {
+          console.log('Message deleted:', data)
+        })
+
+        newSocket.on('chatCleared', (data) => {
+          console.log('Chat cleared:', data)
         })
 
         setSocket(newSocket)
@@ -96,12 +124,36 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const sendTeamMessage = (teamId: string, content: string) => {
+    if (socket && isConnected) {
+      socket.emit('send_team_message', {
+        teamId,
+        content
+      })
+    }
+  }
+
+  const joinTeam = (teamId: string) => {
+    if (socket && isConnected) {
+      socket.emit('join_team', teamId)
+    }
+  }
+
+  const leaveTeam = (teamId: string) => {
+    if (socket && isConnected) {
+      socket.emit('leave_team', teamId)
+    }
+  }
+
   const value = {
     socket,
     isConnected,
     sendMessage,
+    sendTeamMessage,
     joinRoom,
-    leaveRoom
+    leaveRoom,
+    joinTeam,
+    leaveTeam
   }
 
   return (
