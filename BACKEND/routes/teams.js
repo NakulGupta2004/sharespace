@@ -13,10 +13,12 @@ const Activity = require('../models/Activity');
 router.post('/create', authenticate, async (req, res) => {
   try {
     const { name, description, memberIds, adminIds, dp_url } = req.body;
-  const creatorId = req.user.userId;
-  // Ensure creator is a member and admin, filter out empty strings
-  const members = Array.from(new Set([creatorId, ...(memberIds || [])])).filter(id => id && id !== '').map(id => new mongoose.Types.ObjectId(id));
-  const admins = Array.from(new Set([creatorId, ...(adminIds || [])])).filter(id => id && id !== '').map(id => new mongoose.Types.ObjectId(id));
+    const creatorId = req.user.userId;
+    
+    // Create team with only creator as member and admin initially
+    const members = [new mongoose.Types.ObjectId(creatorId)];
+    const admins = [new mongoose.Types.ObjectId(creatorId)];
+    
     const team = new Team({
       name,
       description,
@@ -26,9 +28,83 @@ router.post('/create', authenticate, async (req, res) => {
       resources: []
     });
     await team.save();
+    
+    // Send invites to selected members (except creator)
+    if (memberIds && memberIds.length > 0) {
+      const invitePromises = memberIds
+        .filter(id => id && id !== creatorId && id !== '') // Exclude creator and empty ids
+        .map(async (memberId) => {
+          const user = await User.findById(memberId);
+          if (user) {
+            user.pendingTeamInvites.push({
+              teamId: team._id,
+              teamName: team.name,
+              invitedBy: creatorId
+            });
+            await user.save();
+          }
+        });
+      await Promise.all(invitePromises);
+    }
+    
     res.json({ success: true, team });
   } catch (err) {
     console.error('Team creation error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Accept team invite
+router.post('/accept-invite/:teamId', authenticate, async (req, res) => {
+  try {
+    const { teamId } = req.params;
+    const userId = req.user.userId;
+    
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+    
+    const inviteIndex = user.pendingTeamInvites.findIndex(invite => invite.teamId.toString() === teamId);
+    if (inviteIndex === -1) return res.status(404).json({ success: false, error: 'Invite not found' });
+    
+    // Add user to team members
+    const team = await Team.findById(teamId);
+    if (!team) return res.status(404).json({ success: false, error: 'Team not found' });
+    
+    if (!team.members.includes(userId)) {
+      team.members.push(userId);
+      await team.save();
+    }
+    
+    // Remove invite
+    user.pendingTeamInvites.splice(inviteIndex, 1);
+    await user.save();
+    
+    res.json({ success: true, message: 'Invite accepted' });
+  } catch (err) {
+    console.error('Accept invite error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Reject team invite
+router.post('/reject-invite/:teamId', authenticate, async (req, res) => {
+  try {
+    const { teamId } = req.params;
+    const userId = req.user.userId;
+    
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+    
+    const inviteIndex = user.pendingTeamInvites.findIndex(invite => invite.teamId.toString() === teamId);
+    if (inviteIndex === -1) return res.status(404).json({ success: false, error: 'Invite not found' });
+    
+    // Remove invite
+    user.pendingTeamInvites.splice(inviteIndex, 1);
+    await user.save();
+    
+    res.json({ success: true, message: 'Invite rejected' });
+  } catch (err) {
+    console.error('Reject invite error:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });

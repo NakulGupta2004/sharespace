@@ -29,7 +29,8 @@ router.get('/me', async (req, res) => {
       college_id: user.college_id,
       is_verified: user.verified,
       credits: user.credits,
-      reputation: user.reputation
+      reputation: user.reputation,
+      pendingTeamInvites: user.pendingTeamInvites
     } });
   } catch (error) {
     res.status(401).json({ success: false, message: 'Invalid token' });

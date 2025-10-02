@@ -151,6 +151,12 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     default: []
+  }],
+  pendingTeamInvites: [{
+    teamId: { type: mongoose.Schema.Types.ObjectId, ref: 'Team' },
+    teamName: String,
+    invitedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    date: { type: Date, default: Date.now }
   }]
 }, {
   timestamps: true,
