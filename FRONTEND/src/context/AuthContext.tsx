@@ -30,6 +30,7 @@ interface AuthContextType {
   register: (userData: RegisterData) => Promise<boolean>
   logout: () => void
   updateUser: (userData: Partial<User>) => void
+  refreshUser: () => Promise<void>
 }
 
 interface RegisterData {
@@ -70,6 +71,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const refreshUser = async () => {
+    await checkAuth()
+  }
+
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       const response = await api.post('/api/auth/login', { email, password })
@@ -90,16 +95,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await api.post('/api/auth/register', userData)
       const { token, user } = response.data
-      
-      // If registration includes immediate login (development mode)
-      if (token && user) {
-        localStorage.setItem('sharespace_token', token)
-        api.defaults.headers.common['Authorization'] = `Bearer ${token}`
-        setUser(user)
-        toast.success('Registration successful! Welcome to ShareSpace!')
-      } else {
-        toast.success('Registration successful! Please verify your email.')
-      }
+
+      localStorage.setItem('sharespace_token', token)
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+      setUser(user)
+      toast.success('Registration successful! Welcome to ShareSpace!')
       return true
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Registration failed')
@@ -127,6 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     register,
     logout,
     updateUser,
+    refreshUser
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

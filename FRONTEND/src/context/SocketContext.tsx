@@ -87,6 +87,18 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
           console.log('Chat cleared:', data)
         })
 
+        newSocket.on('invite_accepted', (data) => {
+          console.log('Invite accepted:', data)
+        })
+
+        newSocket.on('invite_rejected', (data) => {
+          console.log('Invite rejected:', data)
+        })
+
+        newSocket.on('team_member_joined', (data) => {
+          console.log('Team member joined:', data)
+        })
+
         setSocket(newSocket)
 
         return () => {

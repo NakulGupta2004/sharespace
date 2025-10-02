@@ -7,6 +7,7 @@ const Team = require('../models/Team');
 const User = require('../models/User');
 const Task = require('../models/Task');
 const Activity = require('../models/Activity');
+const Notification = require('../models/Notification');
 
 // Create a new team
 // Create a new team with DP and admin logic
@@ -31,8 +32,8 @@ router.post('/create', authenticate, async (req, res) => {
     
     // Send invites to selected members (except creator)
     if (memberIds && memberIds.length > 0) {
-      const invitePromises = memberIds
-        .filter(id => id && id !== creatorId && id !== '') // Exclude creator and empty ids
+      const filteredMemberIds = memberIds.filter(id => id && id !== creatorId && id !== '');
+      const invitePromises = filteredMemberIds
         .map(async (memberId) => {
           const user = await User.findById(memberId);
           if (user) {
@@ -42,6 +43,16 @@ router.post('/create', authenticate, async (req, res) => {
               invitedBy: creatorId
             });
             await user.save();
+            
+            // Create notification
+            const notification = new Notification({
+              userId: memberId,
+              type: 'team_invite',
+              title: 'Team Invitation',
+              message: `You have been invited to join the team "${team.name}"`,
+              data: { teamId: team._id, teamName: team.name, invitedBy: creatorId }
+            });
+            await notification.save();
           }
         });
       await Promise.all(invitePromises);
@@ -79,6 +90,19 @@ router.post('/accept-invite/:teamId', authenticate, async (req, res) => {
     user.pendingTeamInvites.splice(inviteIndex, 1);
     await user.save();
     
+    // Mark notification as read
+    await Notification.updateMany(
+      { userId, 'data.teamId': teamId, type: 'team_invite' },
+      { isRead: true }
+    );
+    
+    // Emit socket event to update UI in real-time
+    const io = req.app.get('io');
+    console.log('Emitting invite_accepted to user:', userId, 'for team:', teamId);
+    io.to(`user_${userId}`).emit('invite_accepted', { teamId, userId });
+    console.log('Emitting team_member_joined to team:', teamId, 'for user:', user.name);
+    io.to(`team_${teamId}`).emit('team_member_joined', { teamId, userId, userName: user.name });
+    
     res.json({ success: true, message: 'Invite accepted' });
   } catch (err) {
     console.error('Accept invite error:', err);
@@ -102,9 +126,52 @@ router.post('/reject-invite/:teamId', authenticate, async (req, res) => {
     user.pendingTeamInvites.splice(inviteIndex, 1);
     await user.save();
     
+    // Mark notification as read
+    await Notification.updateMany(
+      { userId, 'data.teamId': teamId, type: 'team_invite' },
+      { isRead: true }
+    );
+    
+    // Emit socket event to update UI in real-time
+    const io = req.app.get('io');
+    io.to(`user_${userId}`).emit('invite_rejected', { teamId, userId });
+    
     res.json({ success: true, message: 'Invite rejected' });
   } catch (err) {
     console.error('Reject invite error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get user notifications
+router.get('/notifications', authenticate, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const notifications = await Notification.find({ userId }).sort({ createdAt: -1 });
+    res.json({ success: true, notifications });
+  } catch (err) {
+    console.error('Get notifications error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Mark notifications as read
+router.post('/notifications/mark-read', authenticate, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { notificationIds } = req.body;
+    if (notificationIds && notificationIds.length > 0) {
+      await Notification.updateMany(
+        { _id: { $in: notificationIds }, userId },
+        { isRead: true }
+      );
+    } else {
+      // Mark all as read
+      await Notification.updateMany({ userId }, { isRead: true });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Mark read error:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });

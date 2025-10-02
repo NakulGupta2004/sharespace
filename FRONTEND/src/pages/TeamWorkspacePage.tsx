@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
+import toast from 'react-hot-toast';
 import {
   Users,
   Plus,
@@ -386,12 +387,37 @@ export default function TeamWorkspacePage() {
       console.log(`Chat cleared by ${data.clearedBy}`);
     };
 
+    const handleInviteAccepted = (data: any) => {
+      console.log('🔄 Invite accepted event received in TeamWorkspacePage:', data);
+      if (data.teamId === selectedTeam?._id) {
+        // Refresh team data to update member list
+        fetchTeams();
+      }
+    };
+
+    const handleInviteRejected = (data: any) => {
+      console.log('Invite rejected event received:', data);
+      // No need to refresh team data for rejection, as member wasn't added
+    };
+
+    const handleTeamMemberJoined = (data: any) => {
+      console.log('👥 Team member joined event received:', data);
+      if (data.teamId === selectedTeam?._id) {
+        // Refresh team data to update member list
+        fetchTeams();
+        toast.success(`${data.userName || 'Someone'} joined the team!`);
+      }
+    };
+
     socket.on('new_team_message', handleNewTeamMessage);
     socket.on('team_message_sent', handleTeamMessageSent);
     socket.on('team_message_error', handleTeamMessageError);
     socket.on('messageEdited', handleMessageEdited);
     socket.on('messageDeleted', handleMessageDeleted);
     socket.on('chatCleared', handleChatCleared);
+    socket.on('invite_accepted', handleInviteAccepted);
+    socket.on('invite_rejected', handleInviteRejected);
+    socket.on('team_member_joined', handleTeamMemberJoined);
 
     return () => {
       socket.off('new_team_message', handleNewTeamMessage);
@@ -400,6 +426,9 @@ export default function TeamWorkspacePage() {
       socket.off('messageEdited', handleMessageEdited);
       socket.off('messageDeleted', handleMessageDeleted);
       socket.off('chatCleared', handleChatCleared);
+      socket.off('invite_accepted', handleInviteAccepted);
+      socket.off('invite_rejected', handleInviteRejected);
+      socket.off('team_member_joined', handleTeamMemberJoined);
     };
   }, [socket, isConnected, selectedTeam]);
 
@@ -431,9 +460,8 @@ export default function TeamWorkspacePage() {
     let finalAdminIds = filteredAdminIds.includes(creatorId)
       ? filteredAdminIds
       : [...filteredAdminIds, creatorId];
-    if (!filteredUserIds.includes(creatorId)) {
-      filteredUserIds.push(creatorId);
-    }
+    // Remove creator from memberIds if present (creator is automatically added as member)
+    filteredUserIds = filteredUserIds.filter(id => id !== creatorId);
     if (teamDpFile) {
       setIsUploadingDp(true);
       try {

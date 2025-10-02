@@ -34,22 +34,39 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const { theme, setTheme } = useTheme();
-  const { user, logout } = useAuth();
-  const { socket } = useSocket();
+  const { user, logout, refreshUser } = useAuth();
+  const { socket, isConnected } = useSocket();
   const navigate = useNavigate();
 
   // Update notifications when user changes
   useEffect(() => {
-    if (user?.pendingTeamInvites) {
-      const teamInvites = user.pendingTeamInvites.map(invite => ({
-        type: 'team_invite',
-        message: `Team invitation: ${invite.teamName}`,
-        time: new Date(invite.date).toLocaleDateString(),
-        ...invite
-      }));
-      setNotifications(prev => [...teamInvites, ...prev.filter(n => n.type !== 'team_invite')]);
+    if (user) {
+      fetchNotifications();
+    } else {
+      setNotifications([]);
     }
   }, [user]);
+
+  const fetchNotifications = async () => {
+    try {
+      const response = await api.get('/api/teams/notifications', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
+      });
+      if (response.data.success) {
+        const notifs = response.data.notifications.map((n: any) => ({
+          type: n.type,
+          message: n.message,
+          time: new Date(n.createdAt).toLocaleDateString(),
+          ...n.data,
+          id: n._id,
+          isRead: n.isRead
+        }));
+        setNotifications(notifs);
+      }
+    } catch (error) {
+      console.error('Failed to fetch notifications:', error);
+    }
+  };
 
   useEffect(() => {
     if (!isChatOpen) return;
@@ -71,7 +88,11 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
   );
   // Listen for socket notifications
   useEffect(() => {
-    if (!socket || !user) return;
+    if (!socket || !isConnected) {
+      console.log('⚠️ Socket not available or not connected in Navbar', { socket: !!socket, isConnected });
+      return;
+    }
+    console.log('🔌 Socket connected in Navbar, setting up listeners');
     const handleNewBooking = (data: any) => {
       setNotifications(prev => [{
         type: 'booking',
@@ -88,13 +109,38 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
         ...data
       }, ...prev]);
     };
+    const handleInviteAccepted = (data: any) => {
+      console.log('🔄 Invite accepted event received in Navbar:', data);
+      // Refresh notifications to reflect the change
+      fetchNotifications();
+      // Also refresh user data to update pending invites
+      if (refreshUser) {
+        refreshUser();
+      }
+      // Join the team room if socket is available
+      if (socket && data.teamId) {
+        console.log('Joining team room after accepting invite:', data.teamId);
+        socket.emit('join_team', data.teamId);
+      }
+    };
+    const handleInviteRejected = (data: any) => {
+      console.log('Invite rejected event:', data);
+      // Refresh notifications to reflect the change
+      fetchNotifications();
+    };
+
     socket.on('new_booking_request', handleNewBooking);
     socket.on('new_message', handleNewMessage);
+    socket.on('invite_accepted', handleInviteAccepted);
+    socket.on('invite_rejected', handleInviteRejected);
+
     return () => {
       socket.off('new_booking_request', handleNewBooking);
       socket.off('new_message', handleNewMessage);
+      socket.off('invite_accepted', handleInviteAccepted);
+      socket.off('invite_rejected', handleInviteRejected);
     };
-  }, [socket, user]);
+  }, [socket, isConnected, user]);
 
   const toggleTheme = () => {
     setTheme(theme === 'light' ? 'dark' : 'light');
@@ -106,27 +152,39 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
     setIsProfileOpen(false);
   };
 
-  const handleAcceptInvite = async (teamId: string) => {
+  const handleAcceptInvite = async (teamId: string, notificationId: string) => {
     try {
       await api.post(`/api/teams/accept-invite/${teamId}`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
       });
       toast.success('Team invite accepted!');
-      // Refresh user data
-      window.location.reload();
+      // Mark notification as read
+      await api.post('/api/teams/notifications/mark-read', { notificationIds: [notificationId] }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
+      });
+      // Refresh notifications immediately
+      fetchNotifications();
+      // Fallback refresh in case socket event doesn't work
+      setTimeout(() => fetchNotifications(), 1000);
     } catch (error) {
       toast.error('Failed to accept invite');
     }
   };
 
-  const handleRejectInvite = async (teamId: string) => {
+  const handleRejectInvite = async (teamId: string, notificationId: string) => {
     try {
       await api.post(`/api/teams/reject-invite/${teamId}`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
       });
       toast.success('Team invite rejected');
-      // Refresh user data
-      window.location.reload();
+      // Mark notification as read
+      await api.post('/api/teams/notifications/mark-read', { notificationIds: [notificationId] }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
+      });
+      // Refresh notifications immediately
+      fetchNotifications();
+      // Fallback refresh in case socket event doesn't work
+      setTimeout(() => fetchNotifications(), 1000);
     } catch (error) {
       toast.error('Failed to reject invite');
     }
@@ -220,9 +278,9 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
                     onClick={() => setShowNotifications(!showNotifications)}
                   >
                     <Bell className="h-5 w-5" />
-                    {notifications.length > 0 && (
+                    {notifications.filter(n => !n.isRead).length > 0 && (
                       <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-xs text-white flex items-center justify-center">
-                        {notifications.length}
+                        {notifications.filter(n => !n.isRead).length}
                       </span>
                     )}
                   </button>
@@ -264,13 +322,13 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
                                   <div className="flex gap-2 mt-2">
                                     <button
                                       className="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600"
-                                      onClick={(e) => { e.stopPropagation(); handleAcceptInvite(n.teamId); }}
+                                      onClick={(e) => { e.stopPropagation(); handleAcceptInvite(n.teamId, n.id); }}
                                     >
                                       Accept
                                     </button>
                                     <button
                                       className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
-                                      onClick={(e) => { e.stopPropagation(); handleRejectInvite(n.teamId); }}
+                                      onClick={(e) => { e.stopPropagation(); handleRejectInvite(n.teamId, n.id); }}
                                     >
                                       Reject
                                     </button>
@@ -282,7 +340,17 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
                         )}
                         <button
                           className="mt-4 w-full bg-blue-500 text-white rounded-lg py-2 text-sm font-semibold hover:bg-blue-600"
-                          onClick={() => { setNotifications([]); setShowNotifications(false); }}
+                          onClick={async () => {
+                            try {
+                              await api.post('/api/teams/notifications/mark-read', {}, {
+                                headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
+                              });
+                              setNotifications([]);
+                              setShowNotifications(false);
+                            } catch (error) {
+                              console.error('Failed to mark notifications as read:', error);
+                            }
+                          }}
                         >Clear Notifications</button>
                       </div>
                     </div>
