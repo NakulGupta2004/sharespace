@@ -15,6 +15,12 @@ interface User {
     ratingsCount: number
   }
   credits: number
+  pendingTeamInvites?: Array<{
+    teamId: string
+    teamName: string
+    invitedBy: string
+    date: string
+  }>
 }
 
 interface AuthContextType {

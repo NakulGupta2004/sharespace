@@ -19,6 +19,7 @@ import { ChatDialog } from '../ui/ChatDialog';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
+import toast from 'react-hot-toast';
 
 export default function Navbar({ workspace, setWorkspace }: { workspace: 'marketplace' | 'team', setWorkspace: (w: 'marketplace' | 'team') => void }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -36,6 +37,19 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
   const { user, logout } = useAuth();
   const { socket } = useSocket();
   const navigate = useNavigate();
+
+  // Update notifications when user changes
+  useEffect(() => {
+    if (user?.pendingTeamInvites) {
+      const teamInvites = user.pendingTeamInvites.map(invite => ({
+        type: 'team_invite',
+        message: `Team invitation: ${invite.teamName}`,
+        time: new Date(invite.date).toLocaleDateString(),
+        ...invite
+      }));
+      setNotifications(prev => [...teamInvites, ...prev.filter(n => n.type !== 'team_invite')]);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!isChatOpen) return;
@@ -90,6 +104,32 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
     logout();
     navigate('/');
     setIsProfileOpen(false);
+  };
+
+  const handleAcceptInvite = async (teamId: string) => {
+    try {
+      await api.post(`/api/teams/accept-invite/${teamId}`, {}, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
+      });
+      toast.success('Team invite accepted!');
+      // Refresh user data
+      window.location.reload();
+    } catch (error) {
+      toast.error('Failed to accept invite');
+    }
+  };
+
+  const handleRejectInvite = async (teamId: string) => {
+    try {
+      await api.post(`/api/teams/reject-invite/${teamId}`, {}, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
+      });
+      toast.success('Team invite rejected');
+      // Refresh user data
+      window.location.reload();
+    } catch (error) {
+      toast.error('Failed to reject invite');
+    }
   };
 
   return (
@@ -211,13 +251,31 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
                                   }
                                 }}
                               >
-                                <div className="font-medium text-blue-600">{n.type === 'booking' ? 'Booking' : 'Message'}</div>
+                                <div className="font-medium text-blue-600">
+                                  {n.type === 'booking' ? 'Booking' : n.type === 'team_invite' ? 'Team Invite' : 'Message'}
+                                </div>
                                 <div className="text-gray-800 dark:text-gray-200">
                                   {n.type === 'message' && n.message && typeof n.message === 'object'
                                     ? `${n.message.senderId?.name || 'User'}: ${n.message.content}`
                                     : (typeof n.message === 'string' ? n.message : JSON.stringify(n.message))}
                                 </div>
                                 <div className="text-xs text-gray-400 mt-1">{n.time}</div>
+                                {n.type === 'team_invite' && (
+                                  <div className="flex gap-2 mt-2">
+                                    <button
+                                      className="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600"
+                                      onClick={(e) => { e.stopPropagation(); handleAcceptInvite(n.teamId); }}
+                                    >
+                                      Accept
+                                    </button>
+                                    <button
+                                      className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
+                                      onClick={(e) => { e.stopPropagation(); handleRejectInvite(n.teamId); }}
+                                    >
+                                      Reject
+                                    </button>
+                                  </div>
+                                )}
                               </li>
                             ))}
                           </ul>
