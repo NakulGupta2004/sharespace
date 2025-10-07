@@ -82,7 +82,7 @@ router.post('/accept-invite/:teamId', authenticate, async (req, res) => {
     if (!team) return res.status(404).json({ success: false, error: 'Team not found' });
     
     if (!team.members.includes(userId)) {
-      team.members.push(userId);
+      team.members.push(mongoose.Types.ObjectId(userId));
       await team.save();
     }
     
@@ -180,10 +180,12 @@ router.post('/notifications/mark-read', authenticate, async (req, res) => {
 router.get('/my', authenticate, async (req, res) => {
   try {
     const userId = req.user.userId;
+    console.log('GET /my - userId:', userId);
     // Populate members and admins with user details
     const teams = await Team.find({ members: userId })
       .populate('members', 'name email _id')
       .populate('admins', 'name email _id');
+    console.log('Found teams:', teams.length, teams.map(t => ({ id: t._id, name: t.name, members: t.members.map(m => m._id) })));
     // For frontend compatibility, convert admins to array of user objects
     const teamsWithRoles = teams.map(team => ({
       ...team.toObject(),
@@ -200,6 +202,7 @@ router.get('/my', authenticate, async (req, res) => {
     }));
     res.json({ success: true, teams: teamsWithRoles });
   } catch (err) {
+    console.error('Error in GET /my:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -213,7 +216,7 @@ router.post('/:teamId/resources', authenticate, async (req, res) => {
     const team = await Team.findById(req.params.teamId);
     if (!team) return res.status(404).json({ success: false, error: 'Team not found' });
     
-    if (!team.members.includes(userId)) return res.status(403).json({ success: false, error: 'Not a team member' });
+    if (!team.members.some(member => member.toString() === userId)) return res.status(403).json({ success: false, error: 'Not a team member' });
     
     team.resources.push({ name, description, quantity, owner, status });
     await team.save();
@@ -240,10 +243,17 @@ router.post('/:teamId/resources', authenticate, async (req, res) => {
 // Get pooled resources for a team
 router.get('/:teamId/resources', async (req, res) => {
   try {
+    console.log('GET resources request for team:', req.params.teamId);
+    console.log('Authorization header:', req.headers.authorization);
     const team = await Team.findById(req.params.teamId).populate('resources.owner', 'name email');
-    if (!team) return res.status(404).json({ success: false, error: 'Team not found' });
+    if (!team) {
+      console.log('Team not found');
+      return res.status(404).json({ success: false, error: 'Team not found' });
+    }
+    console.log('Team found, resources:', team.resources.length);
     res.json({ success: true, resources: team.resources });
   } catch (err) {
+    console.error('Error in GET resources:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -372,10 +382,21 @@ router.delete('/:teamId', authenticate, async (req, res) => {
 router.get('/:teamId/tasks', authenticate, async (req, res) => {
   try {
     const userId = req.user.userId;
+    console.log('GET tasks - userId:', userId, 'teamId:', req.params.teamId);
     const team = await Team.findById(req.params.teamId);
     
-    if (!team) return res.status(404).json({ success: false, error: 'Team not found' });
-    if (!team.members.includes(userId)) return res.status(403).json({ success: false, error: 'Not a team member' });
+    if (!team) {
+      console.log('Team not found');
+      return res.status(404).json({ success: false, error: 'Team not found' });
+    }
+    
+    console.log('Team members:', team.members.map(m => m.toString()));
+    console.log('User in members:', team.members.some(member => member.toString() === userId));
+    
+    if (!team.members.some(member => member.toString() === userId)) {
+      console.log('User not a team member');
+      return res.status(403).json({ success: false, error: 'Not a team member' });
+    }
     
     const tasks = await Task.find({ team: req.params.teamId })
       .populate('assignedTo', 'name email')
@@ -384,6 +405,7 @@ router.get('/:teamId/tasks', authenticate, async (req, res) => {
     
     res.json({ success: true, tasks });
   } catch (err) {
+    console.error('Error in GET tasks:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -395,7 +417,7 @@ router.get('/:teamId/activity', authenticate, async (req, res) => {
     const team = await Team.findById(req.params.teamId);
     
     if (!team) return res.status(404).json({ success: false, error: 'Team not found' });
-    if (!team.members.includes(userId)) return res.status(403).json({ success: false, error: 'Not a team member' });
+    if (!team.members.some(member => member.toString() === userId)) return res.status(403).json({ success: false, error: 'Not a team member' });
     
     const activity = await Activity.find({ team: req.params.teamId })
       .populate('user', 'name email')
@@ -412,10 +434,21 @@ router.get('/:teamId/activity', authenticate, async (req, res) => {
 router.get('/:teamId/messages', authenticate, async (req, res) => {
   try {
     const userId = req.user.userId;
+    console.log('GET messages - userId:', userId, 'teamId:', req.params.teamId);
     const team = await Team.findById(req.params.teamId);
     
-    if (!team) return res.status(404).json({ success: false, error: 'Team not found' });
-    if (!team.members.includes(userId)) return res.status(403).json({ success: false, error: 'Not a team member' });
+    if (!team) {
+      console.log('Team not found');
+      return res.status(404).json({ success: false, error: 'Team not found' });
+    }
+    
+    console.log('Team members:', team.members.map(m => m.toString()));
+    console.log('User in members:', team.members.some(member => member.toString() === userId));
+    
+    if (!team.members.some(member => member.toString() === userId)) {
+      console.log('User not a team member');
+      return res.status(403).json({ success: false, error: 'Not a team member' });
+    }
     
     const Message = require('../models/Message');
     const messages = await Message.find({ 
@@ -428,6 +461,7 @@ router.get('/:teamId/messages', authenticate, async (req, res) => {
     
     res.json({ success: true, messages });
   } catch (err) {
+    console.error('Error in GET messages:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -445,7 +479,7 @@ router.post('/:teamId/messages', authenticate, async (req, res) => {
     const team = await Team.findById(req.params.teamId);
     
     if (!team) return res.status(404).json({ success: false, error: 'Team not found' });
-    if (!team.members.includes(userId)) return res.status(403).json({ success: false, error: 'Not a team member' });
+    if (!team.members.some(member => member.toString() === userId)) return res.status(403).json({ success: false, error: 'Not a team member' });
     
     const Message = require('../models/Message');
     const message = new Message({

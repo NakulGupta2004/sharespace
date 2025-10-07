@@ -328,9 +328,7 @@ export default function TeamWorkspacePage() {
     async function fetchResources() {
       if (!selectedTeam) return;
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/${selectedTeam._id}/resources`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
-        });
+        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/${selectedTeam._id}/resources`);
         const data = await res.json();
         if (data.success) setResources(data.resources);
         else setResources([]);
@@ -526,9 +524,15 @@ export default function TeamWorkspacePage() {
         body: JSON.stringify(body)
       });
       const data = await res.json();
-      if (data.success) setResources(data.resources);
-      setShowAddResourceModal(false);
-    } catch {
+      if (data.success) {
+        setResources(data.resources);
+        setShowAddResourceModal(false);
+      } else {
+        alert(`Error: ${data.error || 'Failed to add resource'}`);
+      }
+    } catch (error) {
+      console.error('Error adding resource:', error);
+      alert('Failed to add resource. Please try again.');
       setShowAddResourceModal(false);
     }
   }
@@ -750,35 +754,35 @@ py-8">
           initial={{ opacity: 0, y: -30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="flex items-center justify-between mb-8"
+          className="flex flex-col sm:flex-row items-center justify-between mb-6 sm:mb-8 gap-4 sm:gap-0"
         >
-          <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <div className="text-center sm:text-left">
+            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
               Team Workspace
             </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-2 text-lg">
+            <p className="text-gray-600 dark:text-gray-400 mt-2 text-base sm:text-lg">
               Collaborate and manage shared resources with elegance
             </p>
           </div>
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm bg-opacity-90"
+            className="inline-flex items-center px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm bg-opacity-90 text-sm sm:text-base"
             onClick={() => setShowCreateTeamModal(true)}
           >
-            <Plus className="h-5 w-5 mr-2" />
+            <Plus className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
             Create Team
           </motion.button>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
           {/* Sidebar - Teams */}
           <div className="lg:col-span-1">
             <motion.div
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-3xl shadow-2xl p-6 border border-white/20"
+              className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-3xl shadow-2xl p-4 sm:p-6 border border-white/20"
             >
               <h2 className="text-xl font-semibold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent dark:text-white mb-6">
                 Your Teams
@@ -842,23 +846,23 @@ py-8">
                   transition={{ duration: 0.5 }}
                   className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-3xl shadow-2xl p-8 mb-8 border border-white/20"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6 w-full sm:w-auto">
                       {selectedTeam?.dp_url ? (
-                        <img src={selectedTeam.dp_url} alt="Team DP" className="w-20 h-20 rounded-3xl object-cover shadow-xl" />
+                        <img src={selectedTeam.dp_url} alt="Team DP" className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl object-cover shadow-xl mx-auto sm:mx-0" />
                       ) : (
-                        <div className={`w-20 h-20 rounded-3xl bg-gradient-to-r ${selectedTeam?.color || 'from-blue-500 to-green-500'} flex items-center justify-center text-white text-3xl shadow-xl`}>
+                        <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-r ${selectedTeam?.color || 'from-blue-500 to-green-500'} flex items-center justify-center text-white text-2xl sm:text-3xl shadow-xl mx-auto sm:mx-0`}>
                           {selectedTeam?.name?.charAt(0)?.toUpperCase() || 'T'}
                         </div>
                       )}
-                      <div>
-                        <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent dark:text-white">
+                      <div className="text-center sm:text-left flex-1 sm:flex-initial">
+                        <h2 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent dark:text-white">
                           {selectedTeam?.name}
                         </h2>
-                        <p className="text-gray-600 dark:text-gray-400 mt-1 text-lg">
+                        <p className="text-gray-600 dark:text-gray-400 mt-1 text-base sm:text-lg">
                           {selectedTeam?.description}
                         </p>
-                        <div className="flex items-center space-x-6 mt-4">
+                        <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-2 sm:space-y-0 sm:space-x-6 mt-4">
                           <div className="flex items-center space-x-2">
                             <Crown className="h-5 w-5 text-yellow-500" />
                             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -868,7 +872,7 @@ py-8">
                           <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-400 to-blue-500 text-white rounded-xl hover:from-green-500 hover:to-blue-600 shadow-lg transition-all duration-300"
+                            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-400 to-blue-500 text-white rounded-xl hover:from-green-500 hover:to-blue-600 shadow-lg transition-all duration-300 text-sm"
                             onClick={() => setIsCreateTaskModalOpen(true)}
                           >
                             <Plus className="h-4 w-4 mr-2" />
@@ -881,7 +885,7 @@ py-8">
                       <motion.button
                         whileHover={{ scale: 1.1, rotate: 90 }}
                         whileTap={{ scale: 0.9 }}
-                        className="p-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 bg-white/50 dark:bg-gray-700/50 rounded-2xl backdrop-blur-sm"
+                        className="p-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 bg-white/50 dark:bg-gray-700/50 rounded-2xl backdrop-blur-sm self-center sm:self-start"
                         onClick={() => setShowSettingsModal(true)}
                       >
                         <Settings className="h-6 w-6" />
@@ -900,7 +904,7 @@ py-8">
               className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-3xl shadow-2xl mb-8 border border-white/20 overflow-hidden"
             >
               <div className="border-b border-gray-200/50 dark:border-gray-700/50 backdrop-blur-sm">
-                <nav className="flex space-x-1 px-6 py-2" aria-label="Tabs">
+                <nav className="flex overflow-x-auto scrollbar-hide space-x-1 px-4 sm:px-6 py-2" aria-label="Tabs">
                   {tabs.map((tab, index) => {
                     const Icon = tab.icon
                     return (
@@ -912,14 +916,15 @@ py-8">
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                        className={`flex items-center space-x-3 py-4 px-6 rounded-2xl font-medium text-sm transition-all duration-300 ${
+                        className={`flex items-center space-x-2 sm:space-x-3 py-3 sm:py-4 px-4 sm:px-6 rounded-2xl font-medium text-sm transition-all duration-300 whitespace-nowrap ${
                           activeTab === tab.id
                             ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
                             : 'text-gray-500 hover:text-gray-700 hover:bg-white/50 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-700/50'
                         }`}
                       >
-                        <Icon className="h-5 w-5" />
-                        <span>{tab.label}</span>
+                        <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+                        <span className="hidden xs:inline">{tab.label}</span>
+                        <span className="xs:hidden">{tab.label.split(' ')[0]}</span>
                       </motion.button>
                     )
                   })}
@@ -927,7 +932,7 @@ py-8">
               </div>
 
               {/* Tab Content */}
-              <div className="p-8">
+              <div className="p-4 sm:p-6 lg:p-8">
                 <AnimatePresence mode="wait">
                   {/* Overview Tab */}
                   {activeTab === 'overview' && (
@@ -939,11 +944,11 @@ py-8">
                       transition={{ duration: 0.4 }}
                       className="space-y-8"
                     >
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
                         {/* Recent Tasks */}
                         <motion.div
                           variants={itemVariants}
-                          className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-800 dark:to-gray-700 rounded-3xl p-6 shadow-xl border border-white/20 h-[30rem] flex flex-col"
+                          className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-800 dark:to-gray-700 rounded-3xl p-4 sm:p-6 shadow-xl border border-white/20 h-80 sm:h-96 lg:h-[30rem] flex flex-col"
                         >
                           <div className="flex items-center space-x-3 mb-6">
                             <div className="p-3 bg-blue-500 rounded-2xl">
@@ -996,7 +1001,7 @@ py-8">
                         {/* Team Activity */}
                         <motion.div
                           variants={itemVariants}
-                          className="bg-gradient-to-br from-purple-50 to-pink-100 dark:from-gray-800 dark:to-gray-700 rounded-3xl p-6 shadow-xl border border-white/20 h-[30rem] flex flex-col"
+                          className="bg-gradient-to-br from-purple-50 to-pink-100 dark:from-gray-800 dark:to-gray-700 rounded-3xl p-4 sm:p-6 shadow-xl border border-white/20 h-80 sm:h-96 lg:h-[30rem] flex flex-col"
                         >
                           <div className="flex items-center space-x-3 mb-6">
                             <div className="p-3 bg-purple-500 rounded-2xl">
@@ -1045,7 +1050,7 @@ py-8">
                         {/* Team Members */}
                         <motion.div
                           variants={itemVariants}
-                          className="bg-gradient-to-br from-green-50 to-teal-100 dark:from-gray-800 dark:to-gray-700 rounded-3xl p-6 shadow-xl border border-white/20 h-[30rem] flex flex-col"
+                          className="bg-gradient-to-br from-green-50 to-teal-100 dark:from-gray-800 dark:to-gray-700 rounded-3xl p-4 sm:p-6 shadow-xl border border-white/20 h-80 sm:h-96 lg:h-[30rem] flex flex-col"
                         >
                           <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center space-x-3">
@@ -1218,9 +1223,9 @@ py-8">
                       <motion.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="flex items-center justify-between flex-wrap gap-4"
+                        className="flex items-center justify-between flex-wrap gap-2 sm:gap-4"
                       >
-                        <div className="flex space-x-3">
+                        <div className="flex flex-wrap gap-2 sm:gap-3">
                           {['all', 'my_tasks', 'pending', 'in_progress', 'completed'].map((filter, index) => (
                             <motion.button
                               key={filter}
@@ -1230,7 +1235,7 @@ py-8">
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
                               onClick={() => setTaskFilter(filter)}
-                              className={`px-4 py-2 text-sm rounded-2xl transition-all duration-300 shadow-md ${
+                              className={`px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-2xl transition-all duration-300 shadow-md ${
                                 taskFilter === filter
                                   ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
                                   : 'bg-white/70 dark:bg-gray-700/70 backdrop-blur-sm text-gray-700 dark:text-gray-300 hover:bg-white/90 dark:hover:bg-gray-700/90 border border-white/30'
@@ -1240,20 +1245,20 @@ py-8">
                             </motion.button>
                           ))}
                         </div>
-                        <div className="flex space-x-3">
+                        <div className="flex space-x-2">
                           <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            className="p-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 bg-white/50 dark:bg-gray-700/50 rounded-2xl backdrop-blur-sm border border-white/30"
+                            className="p-2 sm:p-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 bg-white/50 dark:bg-gray-700/50 rounded-2xl backdrop-blur-sm border border-white/30"
                           >
-                            <Search className="h-5 w-5" />
+                            <Search className="h-4 w-4 sm:h-5 sm:w-5" />
                           </motion.button>
                           <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            className="p-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 bg-white/50 dark:bg-gray-700/50 rounded-2xl backdrop-blur-sm border border-white/30"
+                            className="p-2 sm:p-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 bg-white/50 dark:bg-gray-700/50 rounded-2xl backdrop-blur-sm border border-white/30"
                           >
-                            <Filter className="h-5 w-5" />
+                            <Filter className="h-4 w-4 sm:h-5 sm:w-5" />
                           </motion.button>
                         </div>
                       </motion.div>
@@ -1270,31 +1275,33 @@ py-8">
                             key={task._id}
                             variants={itemVariants}
                             whileHover={{ scale: 1.02, y: -2 }}
-                            className="bg-white/70 dark:bg-gray-700/70 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-white/20"
+                            className="bg-white/70 dark:bg-gray-700/70 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-white/20"
                           >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center space-x-4 mb-3">
-                                  <h4 className="font-bold text-gray-900 dark:text-white text-lg">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-3 sm:gap-0">
+                              <div className="flex-1 w-full sm:w-auto">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 mb-3">
+                                  <h4 className="font-bold text-gray-900 dark:text-white text-base sm:text-lg break-words w-full sm:w-auto">
                                     {task.title}
                                   </h4>
-                                  <span className={`px-3 py-1 text-xs rounded-full ${priorityColors[task.priority] ?? ''} shadow-sm`}>
-                                    {task.priority}
-                                  </span>
-                                  <span className={`px-3 py-1 text-xs rounded-full ${statusColors[task.status] ?? ''} shadow-sm`}>
-                                    {task.status.replace('_', ' ')}
-                                  </span>
+                                  <div className="flex flex-wrap gap-2">
+                                    <span className={`px-2 sm:px-3 py-1 text-xs rounded-full ${priorityColors[task.priority] ?? ''} shadow-sm`}>
+                                      {task.priority}
+                                    </span>
+                                    <span className={`px-2 sm:px-3 py-1 text-xs rounded-full ${statusColors[task.status] ?? ''} shadow-sm`}>
+                                      {task.status.replace('_', ' ')}
+                                    </span>
+                                  </div>
                                 </div>
-                                <p className="text-gray-600 dark:text-gray-400 mb-4 leading-relaxed">
+                                <p className="text-gray-600 dark:text-gray-400 mb-3 sm:mb-4 leading-relaxed text-sm sm:text-base break-words">
                                   {task.description}
                                 </p>
-                                <div className="flex items-center space-x-6 text-sm text-gray-500 dark:text-gray-400">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 sm:space-x-6 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                                   <div className="flex items-center space-x-2">
-                                    <User className="h-4 w-4" />
-                                    <span>{typeof task.assignee === 'string' ? task.assignee : task.assignee?.name || 'Unassigned'}</span>
+                                    <User className="h-3 w-3 sm:h-4 sm:w-4" />
+                                    <span className="truncate">{typeof task.assignee === 'string' ? task.assignee : task.assignee?.name || 'Unassigned'}</span>
                                   </div>
                                   <div className="flex items-center space-x-2">
-                                    <Calendar className="h-4 w-4" />
+                                    <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
                                     <span>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}</span>
                                   </div>
                                   <span className="font-medium">{typeof task.team === 'string' ? task.team : task.team?.name || 'Unknown Team'}</span>
@@ -1316,9 +1323,9 @@ py-8">
                               <motion.button
                                 whileHover={{ scale: 1.1, rotate: 90 }}
                                 whileTap={{ scale: 0.9 }}
-                                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 bg-white/50 dark:bg-gray-700/50 rounded-xl backdrop-blur-sm"
+                                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 bg-white/50 dark:bg-gray-700/50 rounded-xl backdrop-blur-sm self-end sm:self-start"
                               >
-                                <MoreVertical className="h-5 w-5" />
+                                <MoreVertical className="h-4 w-4 sm:h-5 sm:w-5" />
                               </motion.button>
                             </div>
                           </motion.div>
@@ -1509,7 +1516,7 @@ py-8">
                         </div>
 
                         {/* Messages Container */}
-                        <div className="h-96 overflow-y-auto space-y-3 mb-4 p-4">
+                        <div className="h-64 sm:h-80 lg:h-96 overflow-y-auto space-y-3 mb-4 p-2 sm:p-4">
                           {groupMessages.length === 0 ? (
                             <div className="text-center text-gray-500 dark:text-gray-400 py-8">
                               <MessageCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -1527,10 +1534,10 @@ py-8">
                                   animate={{ opacity: 1, y: 0 }}
                                   className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} group`}
                                 >
-                                  <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl relative shadow-sm ${
+                                  <div className={`max-w-[280px] sm:max-w-xs lg:max-w-md px-3 sm:px-4 py-2 rounded-2xl relative shadow-sm ${
                                     isOwnMessage
-                                      ? 'bg-blue-500 text-white rounded-br-md ml-12'
-                                      : 'bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white rounded-bl-md mr-12'
+                                      ? 'bg-blue-500 text-white rounded-br-md ml-8 sm:ml-12'
+                                      : 'bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white rounded-bl-md mr-8 sm:mr-12'
                                   }`}>
                                     {/* Message Header */}
                                     <div className="flex items-center justify-between mb-1">
@@ -1629,7 +1636,7 @@ py-8">
                             onChange={(e) => setNewMessage(e.target.value)}
                             onKeyPress={(e) => e.key === 'Enter' && sendGroupMessage()}
                             placeholder="Type your message..."
-                            className="flex-1 px-4 py-2 bg-white/50 dark:bg-gray-600/50 border border-gray-200 dark:border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="flex-1 px-3 sm:px-4 py-2 bg-white/50 dark:bg-gray-600/50 border border-gray-200 dark:border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                             disabled={isSendingMessage}
                           />
                           <motion.button
@@ -1637,14 +1644,14 @@ py-8">
                             whileTap={{ scale: 0.95 }}
                             onClick={sendGroupMessage}
                             disabled={!newMessage.trim() || isSendingMessage}
-                            className="px-6 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white rounded-xl font-medium transition-colors duration-200 flex items-center space-x-2"
+                            className="px-4 sm:px-6 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white rounded-xl font-medium transition-colors duration-200 flex items-center space-x-2"
                           >
                             {isSendingMessage ? (
                               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                             ) : (
                               <MessageCircle className="h-4 w-4" />
                             )}
-                            <span>Send</span>
+                            <span className="hidden sm:inline">Send</span>
                           </motion.button>
                         </div>
                       </motion.div>
@@ -1798,7 +1805,7 @@ py-8">
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-3xl shadow-2xl p-8 w-full max-w-lg border border-white/20 max-h-[90vh] overflow-y-auto"
+              className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-3xl shadow-2xl p-6 sm:p-8 w-full max-w-lg border border-white/20 max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-6">
