@@ -22,11 +22,11 @@ interface Listing {
   category: string
   images: { url: string; alt_text: string }[]
   pricing: {
-    type: 'rent' | 'share' | 'sell'
-    amount?: number
+    type: 'rent' | 'sell' | 'free' | 'barter'
+    hourlyRate?: number
     dailyRate?: number
-    duration?: string
-    currency: string
+    sellPrice?: number
+    depositAmount?: number
   }
   condition: string
   availability: {
@@ -177,18 +177,19 @@ export default function HomePage() {
   ]
 
   const formatPrice = (listing: Listing) => {
-    // Handle the actual backend data structure
-    if (listing.pricing?.dailyRate) {
-      return `₹${listing.pricing.dailyRate}/day`
+    const { pricing } = listing
+    if (pricing.type === 'rent') {
+      return `₹${pricing.dailyRate || pricing.hourlyRate || 0}/day`
     }
-    // Handle the interface structure (fallback)
-    if (listing.pricing?.amount) {
-      const { pricing } = listing
-      if (pricing.type === 'share') return 'Share'
-      if (pricing.type === 'sell') return `₹${pricing.amount}`
-      return `₹${pricing.amount}/${pricing.duration || 'day'}`
+    if (pricing.type === 'sell') {
+      return `₹${pricing.sellPrice || 0}`
     }
-    // Default fallback
+    if (pricing.type === 'free') {
+      return 'Free'
+    }
+    if (pricing.type === 'barter') {
+      return 'Exchange'
+    }
     return '₹0/day'
   }
 

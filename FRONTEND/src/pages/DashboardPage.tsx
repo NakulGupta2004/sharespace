@@ -13,10 +13,12 @@ interface Team {
   members: TeamMember[];
   admins: string[];
 }
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
+import { showToast } from '../utils/toast';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { PaymentButton } from '../components/ui/PaymentButton';
@@ -181,14 +183,14 @@ const DashboardPage: React.FC = () => {
       });
       
       if (response.data.success) {
-        alert('Member removed successfully');
+        showToast.success('Member removed successfully');
         setMemberToRemove(null);
         fetchTeams();
       } else {
-        alert(response.data.error || 'Failed to remove member');
+        showToast.error(response.data.error || 'Failed to remove member');
       }
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to remove member');
+      showToast.error(err.response?.data?.error || 'Failed to remove member');
     }
   };
 
@@ -200,15 +202,15 @@ const DashboardPage: React.FC = () => {
       });
       
       if (response.data.success) {
-        alert('Team deleted successfully');
+        showToast.success('Team deleted successfully');
         setConfirmDeleteTeam(false);
         setSelectedTeam(null);
         fetchTeams();
       } else {
-        alert(response.data.error || 'Failed to delete team');
+        showToast.error(response.data.error || 'Failed to delete team');
       }
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to delete team');
+      showToast.error(err.response?.data?.error || 'Failed to delete team');
     }
   };
 
@@ -310,13 +312,13 @@ const DashboardPage: React.FC = () => {
         fetchBookings();
         
         // Show success message
-        alert(`Booking ${status} successfully!`);
+        showToast.success(`Booking ${status} successfully!`);
       } else {
-        alert(response.data.message || 'Failed to update booking status');
+        showToast.error(response.data.message || 'Failed to update booking status');
       }
     } catch (err: any) {
       console.error('Error updating booking status:', err);
-      alert(err.response?.data?.message || 'Failed to update booking status');
+      showToast.error(err.response?.data?.message || 'Failed to update booking status');
     }
   };
 
@@ -678,7 +680,7 @@ const DashboardPage: React.FC = () => {
                                         email: user?.email || ''
                                       }}
                                       onSuccess={(_response) => {
-                                        alert('Payment successful!');
+                                        showToast.success('Payment successful!');
                                         fetchBookings(); // Refresh bookings
                                         refreshUserData(); // Refresh user earnings
                                         // Also refresh after a short delay to ensure backend has updated
@@ -687,7 +689,7 @@ const DashboardPage: React.FC = () => {
                                         }, 1000);
                                       }}
                                       onFailure={(error) => {
-                                        alert(`Payment failed: ${error.message}`);
+                                        showToast.error(`Payment failed: ${error.message}`);
                                       }}
                                       className="text-xs px-3 py-1"
                                     />
@@ -968,10 +970,10 @@ const DashboardPage: React.FC = () => {
                                           await api.put(`/api/listings/${listing._id}/status`, { isActive: newStatus }, {
                                             headers: { Authorization: `Bearer ${localStorage.getItem('sharespace_token')}` }
                                           });
-                                          alert(`Listing is now ${newStatus ? 'Public' : 'Private'}.`);
+                                          showToast.success(`Listing is now ${newStatus ? 'Public' : 'Private'}.`);
                                           window.location.reload();
                                         } catch (err) {
-                                          alert('Error updating listing status.');
+                                          showToast.error('Error updating listing status.');
                                         }
                                       }}
                                       variant={listing.isActive ? 'secondary' : 'default'}

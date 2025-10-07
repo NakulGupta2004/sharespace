@@ -56,9 +56,35 @@ function App() {
                   duration: 4000,
                   style: {
                     background: 'rgba(255, 255, 255, 0.95)',
-                    backdropFilter: 'blur(10px)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                    borderRadius: '12px',
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    borderRadius: '16px',
+                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                  },
+                  success: {
+                    style: {
+                      background: 'rgba(34, 197, 94, 0.95)',
+                      color: 'white',
+                      border: '1px solid rgba(34, 197, 94, 0.3)',
+                    },
+                    icon: '✅',
+                  },
+                  error: {
+                    style: {
+                      background: 'rgba(239, 68, 68, 0.95)',
+                      color: 'white',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                    },
+                    icon: '❌',
+                  },
+                  loading: {
+                    style: {
+                      background: 'rgba(59, 130, 246, 0.95)',
+                      color: 'white',
+                      border: '1px solid rgba(59, 130, 246, 0.3)',
+                    },
                   },
                 }}
               />

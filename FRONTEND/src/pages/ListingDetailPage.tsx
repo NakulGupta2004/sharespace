@@ -20,6 +20,7 @@ import {
   Gift
 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
+import { showToast } from '../utils/toast'
 import { useAuth } from '../context/AuthContext'
 
 // Interface matching your backend Listing model
@@ -86,13 +87,13 @@ export default function ListingDetailPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.data.success) {
-        alert('Owner added to your chat contacts!');
+        showToast.success('Owner added to your chat contacts!');
       } else {
-        alert(response.data.message || 'Could not add owner to contacts');
+        showToast.error(response.data.message || 'Could not add owner to contacts');
       }
     } catch (error: any) {
       console.error('Add friend error:', error);
-      alert(error.response?.data?.message || 'Error adding owner to contacts');
+      showToast.error(error.response?.data?.message || 'Error adding owner to contacts');
     }
   };
   const { id } = useParams<{ id: string }>()
@@ -162,7 +163,7 @@ export default function ListingDetailPage() {
     };
     if (listing?.pricing?.type === 'rent') {
       if (!bookingData.startDate || !bookingData.endDate) {
-        alert('Please select both start and end dates')
+        showToast.warning('Please select both start and end dates')
         return
       }
       payload.startDate = bookingData.startDate;
@@ -179,7 +180,7 @@ export default function ListingDetailPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.data.success) {
-        alert('Booking request sent successfully!');
+        showToast.success('Booking request sent successfully!');
         setShowBookingModal(false);
         setBookingData({ startDate: '', endDate: '', notes: '', barterItem: '' });
         setShowApprovalPopup(true);
@@ -187,7 +188,7 @@ export default function ListingDetailPage() {
       }
     } catch (error: any) {
       console.error('Booking error:', error);
-      alert(error.response?.data?.message || 'Error creating booking');
+      showToast.error(error.response?.data?.message || 'Error creating booking');
     } finally {
       setBookingLoading(false);
     }
@@ -301,7 +302,7 @@ export default function ListingDetailPage() {
     } else {
       // Fallback - copy link to clipboard
       navigator.clipboard.writeText(window.location.href)
-        .then(() => alert('Link copied to clipboard!'))
+        .then(() => showToast.success('Link copied to clipboard!'))
         .catch(err => console.error('Could not copy link:', err))
     }
   }
@@ -317,6 +318,8 @@ export default function ListingDetailPage() {
       return `₹${listing.pricing.sellPrice}`
     } else if (listing.pricing.type === 'free') {
       return 'Free'
+    } else if (listing.pricing.type === 'barter') {
+      return 'Exchange'
     }
     return 'Contact for price'
   }

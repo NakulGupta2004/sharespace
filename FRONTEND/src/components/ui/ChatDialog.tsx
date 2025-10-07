@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from './Button';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
+import { showToast } from '../../utils/toast';
 import api from '../../utils/api';
 
 interface User {
@@ -63,7 +64,7 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({ user: chatUser, onClose 
 
   const handleSend = () => {
     if (!chatUser?._id || !input.trim()) {
-      alert('Please select a contact and enter a message.');
+      showToast.warning('Please select a contact and enter a message.');
       return;
     }
     sendMessage(chatUser._id, 'general', input);
