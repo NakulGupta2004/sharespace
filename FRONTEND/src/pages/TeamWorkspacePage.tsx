@@ -790,7 +790,7 @@ export default function TeamWorkspacePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-gray-800 overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-gray-800 overflow-hidden overflow-x-hidden">
       <div className="relative max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <motion.div
@@ -863,8 +863,8 @@ export default function TeamWorkspacePage() {
         </motion.div>
 
         <div className="flex h-full relative">
-          {/* Navigation Buttons - Fixed to left edge */}
-          <div className="fixed left-0 top-1/2 transform -translate-y-1/2 flex flex-col space-y-2 z-10">
+          {/* Navigation Buttons - Fixed to left edge - Hidden on mobile */}
+          <div className="hidden md:flex fixed left-0 top-1/2 transform -translate-y-1/2 flex-col space-y-2 z-10">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -1911,7 +1911,7 @@ export default function TeamWorkspacePage() {
                                   initial={{ opacity: 0, scale: 0.8, y: 10 }}
                                   animate={{ opacity: 1, scale: 1, y: 0 }}
                                   exit={{ opacity: 0, scale: 0.8, y: 10 }}
-                                  className="emoji-picker-container absolute bottom-full right-0 mb-2 w-64 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 z-50"
+                                  className="emoji-picker-container absolute bottom-full right-0 mb-2 w-64 max-w-[calc(100vw-2rem)] sm:max-w-xs bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 z-50"
                                 >
                                   <div className="grid grid-cols-8 gap-2">
                                     {[

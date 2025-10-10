@@ -12,7 +12,10 @@ import {
   ShoppingCart,
   Plus,
   Users,
-  MessageCircle
+  MessageCircle,
+  LogOut,
+  LogIn,
+  UserPlus
 } from 'lucide-react';
 // import { ChatBox } from '../ui/ChatBox'; // Unused
 import { ChatDialog } from '../ui/ChatDialog';
@@ -196,53 +199,150 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
       animate={{ y: 0 }}
       className="sticky top-0 z-50 w-full border-b border-gray-200/20 bg-white/80 backdrop-blur-lg dark:bg-gray-900/80 dark:border-gray-700/20"
     >
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between">
-          {/* Workspace Toggle Switch */}
-          <div className="hidden md:flex items-center mr-8">
-            <span className={`mr-4 font-semibold transition-colors duration-300 ${workspace === 'marketplace' ? 'text-blue-600' : 'text-gray-400'}`}>Marketplace</span>
-            <button
-              className={`w-16 h-8 flex items-center bg-gray-300 rounded-full p-1 transition-colors duration-300 focus:outline-none ${workspace === 'team' ? 'bg-blue-600' : 'bg-gray-300'}`}
-              onClick={() => setWorkspace(workspace === 'marketplace' ? 'team' : 'marketplace')}
-              aria-label="Toggle workspace"
-            >
-              <span
-                className={`w-6 h-6 bg-white rounded-full shadow transform transition-transform duration-300 ${workspace === 'team' ? 'translate-x-8' : ''}`}
-                style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
-              />
-            </button>
-            <span className={`ml-4 font-semibold transition-colors duration-300 ${workspace === 'team' ? 'text-blue-600' : 'text-gray-400'}`}>Team Workspace</span>
-          </div>
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="flex items-center space-x-2"
-            >
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-blue-500 to-green-500">
-                <ShoppingCart className="h-5 w-5 text-white" />
+      <div className="mx-auto max-w-7xl px-2 sm:px-4 lg:px-8">
+        <div className="flex h-12 sm:h-16 items-center justify-between">
+          {/* Mobile: Compact Logo + Hamburger */}
+          <div className="flex md:hidden items-center space-x-16 flex-1">
+            {/* Mobile Logo - Smaller */}
+            <Link to="/" className="flex items-center space-x-1">
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-r from-blue-500 to-green-500">
+                <ShoppingCart className="h-4 w-4 text-white" />
               </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+              <span className="text-sm font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
                 ShareSpace
               </span>
-            </motion.div>
-          </Link>
+            </Link>
 
-          {/* Search Bar - Desktop */}
-          <div className="hidden md:flex flex-1 max-w-lg mx-8">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Find items, books, or kits..."
-                className="w-full rounded-lg border border-gray-200 bg-white/50 py-2 pl-10 pr-4 text-sm backdrop-blur-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800/50 dark:text-white"
-              />
+            {/* Mobile Workspace Toggle - Compact */}
+            <div className="flex items-center ml-auto mr-2">
+              <button
+                className={`w-8 h-4 flex items-center bg-gray-300 rounded-full p-0.5 transition-colors duration-300 focus:outline-none ${workspace === 'team' ? 'bg-blue-600' : 'bg-gray-300'}`}
+                onClick={() => setWorkspace(workspace === 'marketplace' ? 'team' : 'marketplace')}
+                aria-label="Toggle workspace"
+              >
+                <span
+                  className={`w-3 h-3 bg-white rounded-full shadow transform transition-transform duration-300 ${workspace === 'team' ? 'translate-x-4' : ''}`}
+                  style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}
+                />
+              </button>
+            </div>
+
+            {/* Mobile Menu Button and Profile */}
+            <div className="flex items-center space-x-2">
+              {user && (
+                <div className="relative">
+                  <button
+                    onClick={() => setIsProfileOpen(!isProfileOpen)}
+                    className="flex items-center space-x-2 rounded-full bg-gray-100 p-1 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
+                  >
+                    <img
+                      src={user.avatar_url || `https://ui-avatars.com/api/?name=${user.name}&background=random`}
+                      alt={user.name}
+                      className="h-7 w-7 rounded-full"
+                    />
+                  </button>
+
+                  <AnimatePresence>
+                    {isProfileOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                        className="absolute right-0 mt-2 w-48 max-w-[calc(100vw-2rem)] rounded-lg bg-white shadow-lg ring-1 ring-black/5 dark:bg-gray-800 dark:ring-white/10 z-50"
+                      >
+                        <div className="p-2">
+                          <div className="px-3 py-2 text-sm">
+                            <p className="font-medium text-gray-900 dark:text-white">{user.name}</p>
+                            <p className="text-gray-500 dark:text-gray-400">{user.email}</p>
+                          </div>
+                          <hr className="my-2 border-gray-200 dark:border-gray-700" />
+                          <Link
+                            to="/profile"
+                            className="block rounded px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                            onClick={() => setIsProfileOpen(false)}
+                          >
+                            Profile
+                          </Link>
+                          <Link
+                            to="/settings"
+                            className="block rounded px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                            onClick={() => setIsProfileOpen(false)}
+                          >
+                            Settings
+                          </Link>
+                          <button
+                            onClick={() => {
+                              handleLogout();
+                              setIsProfileOpen(false);
+                            }}
+                            className="block w-full rounded px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-100 dark:text-red-400 dark:hover:bg-gray-700"
+                          >
+                            Sign out
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
+
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="rounded-md p-1.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
             </div>
           </div>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-4">
+          {/* Desktop Layout */}
+          <div className="hidden md:flex items-center justify-between w-full">
+            {/* Workspace Toggle Switch */}
+            <div className="flex items-center mr-8">
+              <span className={`mr-4 text-base font-semibold transition-colors duration-300 ${workspace === 'marketplace' ? 'text-blue-600' : 'text-gray-400'}`}>Marketplace</span>
+              <button
+                className={`w-16 h-8 flex items-center bg-gray-300 rounded-full p-1 transition-colors duration-300 focus:outline-none ${workspace === 'team' ? 'bg-blue-600' : 'bg-gray-300'}`}
+                onClick={() => setWorkspace(workspace === 'marketplace' ? 'team' : 'marketplace')}
+                aria-label="Toggle workspace"
+              >
+                <span
+                  className={`w-6 h-6 bg-white rounded-full shadow transform transition-transform duration-300 ${workspace === 'team' ? 'translate-x-8' : ''}`}
+                  style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
+                />
+              </button>
+              <span className={`ml-4 text-base font-semibold transition-colors duration-300 ${workspace === 'team' ? 'text-blue-600' : 'text-gray-400'}`}>Team</span>
+            </div>
+
+            {/* Logo */}
+            <Link to="/" className="flex items-center space-x-2">
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center space-x-2"
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-blue-500 to-green-500">
+                  <ShoppingCart className="h-5 w-5 text-white" />
+                </div>
+                <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+                  ShareSpace
+                </span>
+              </motion.div>
+            </Link>
+
+            {/* Search Bar - Desktop */}
+            <div className="flex-1 max-w-lg mx-8">
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Find items, books, or kits..."
+                  className="w-full rounded-lg border border-gray-200 bg-white/50 py-2 pl-10 pr-4 text-sm backdrop-blur-sm transition-all focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800/50 dark:text-white"
+                />
+              </div>
+            </div>
+
+            {/* Desktop Navigation */}
+            <div className="flex items-center space-x-4">
             {user ? (
               <>
                 <Link
@@ -285,7 +385,7 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
                     )}
                   </button>
                   {showNotifications && (
-                    <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg z-50 border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+                    <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg z-50 border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
                       <div className="p-4">
                         <h3 className="font-bold text-lg mb-2">Notifications</h3>
                         {notifications.length === 0 ? (
@@ -430,7 +530,7 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
                         initial={{ opacity: 0, scale: 0.95, y: -10 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                        className="absolute right-0 mt-2 w-48 rounded-lg bg-white shadow-lg ring-1 ring-black/5 dark:bg-gray-800 dark:ring-white/10"
+                        className="absolute right-0 mt-2 w-48 max-w-[calc(100vw-2rem)] rounded-lg bg-white shadow-lg ring-1 ring-black/5 dark:bg-gray-800 dark:ring-white/10"
                       >
                         <div className="p-2">
                           <div className="px-3 py-2 text-sm">
@@ -488,89 +588,116 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
               {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
             </button>
           </div>
-
-          {/* Mobile menu button */}
-          <div className="flex md:hidden">
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-            >
-              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </button>
-          </div>
         </div>
 
-        {/* Mobile menu */}
+        {/* Mobile Hamburger Menu */}
         <AnimatePresence>
           {isMenuOpen && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="md:hidden"
+              initial={{ opacity: 0, height: 0, y: -20 }}
+              animate={{ opacity: 1, height: 'auto', y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -20 }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              className="md:hidden absolute top-full left-0 right-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 shadow-xl z-40"
             >
-              <div className="space-y-1 pb-3 pt-2">
-                {/* Mobile search */}
-                <div className="px-3 pb-3">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search items..."
-                      className="w-full rounded-lg border border-gray-200 bg-white/50 py-2 pl-10 pr-4 text-sm backdrop-blur-sm focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800/50"
-                    />
-                  </div>
+              <div className="px-4 py-6 space-y-4">
+                {/* Mobile Search Bar */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                  <input
+                    type="text"
+                    placeholder="Search items, books, or kits..."
+                    className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 py-3 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:text-white dark:placeholder-gray-400 transition-all duration-200"
+                  />
                 </div>
 
-                {user ? (
-                  <>
-                    <Link
-                      to="/dashboard"
-                      className="block rounded-lg px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-                    >
-                      Dashboard
-                    </Link>
-                    <Link
-                      to="/create-listing"
-                      className="block rounded-lg px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-                    >
-                      List Item
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="block w-full rounded-lg px-3 py-2 text-left text-base font-medium text-red-600 hover:bg-gray-100 dark:text-red-400 dark:hover:bg-gray-800"
-                    >
-                      Sign out
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <Link
-                      to="/login"
-                      className="block rounded-lg px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-                    >
-                      Sign in
-                    </Link>
-                    <Link
-                      to="/register"
-                      className="block rounded-lg px-3 py-2 text-base font-medium text-blue-600 hover:bg-gray-100 dark:text-blue-400 dark:hover:bg-gray-800"
-                    >
-                      Join Campus
-                    </Link>
-                  </>
-                )}
+                {/* Navigation Links */}
+                <div className="space-y-2">
+                  {user ? (
+                    <>
+                      {/* Authenticated User Menu */}
+                      <Link
+                        to="/dashboard"
+                        className="flex items-center space-x-3 rounded-xl px-4 py-3 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        <span>Dashboard</span>
+                      </Link>
 
-                <button
-                  onClick={toggleTheme}
-                  className="flex w-full items-center rounded-lg px-3 py-2 text-base font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-                >
-                  {theme === 'light' ? <Moon className="mr-2 h-5 w-5" /> : <Sun className="mr-2 h-5 w-5" />}
-                  {theme === 'light' ? 'Dark mode' : 'Light mode'}
-                </button>
+                      <Link
+                        to="/create-listing"
+                        className="flex items-center space-x-3 rounded-xl px-4 py-3 text-base font-medium bg-gradient-to-r from-blue-500 to-green-500 text-white hover:from-blue-600 hover:to-green-600 transition-all duration-200 shadow-md"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        <Plus className="h-5 w-5" />
+                        <span>List Item</span>
+                      </Link>
+
+                      {/* Theme Toggle in Menu */}
+                      <button
+                        onClick={() => {
+                          toggleTheme();
+                          setIsMenuOpen(false);
+                        }}
+                        className="flex items-center space-x-3 w-full rounded-xl px-4 py-3 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
+                      >
+                        {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+                        <span>{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
+                      </button>
+
+                      {/* Sign Out */}
+                      <button
+                        onClick={() => {
+                          handleLogout();
+                          setIsMenuOpen(false);
+                        }}
+                        className="flex items-center space-x-3 w-full rounded-xl px-4 py-3 text-base font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
+                      >
+                        <LogOut className="h-5 w-5" />
+                        <span>Sign Out</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {/* Non-Authenticated User Menu */}
+                      <Link
+                        to="/login"
+                        className="flex items-center space-x-3 rounded-xl px-4 py-3 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        <LogIn className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        <span>Sign In</span>
+                      </Link>
+
+                      <Link
+                        to="/register"
+                        className="flex items-center space-x-3 rounded-xl px-4 py-3 text-base font-medium bg-gradient-to-r from-blue-500 to-green-500 text-white hover:from-blue-600 hover:to-green-600 transition-all duration-200 shadow-md"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        <UserPlus className="h-5 w-5" />
+                        <span>Join Campus</span>
+                      </Link>
+
+                      {/* Theme Toggle in Menu */}
+                      <button
+                        onClick={() => {
+                          toggleTheme();
+                          setIsMenuOpen(false);
+                        }}
+                        className="flex items-center space-x-3 w-full rounded-xl px-4 py-3 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
+                      >
+                        {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+                        <span>{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
+      </div>
       </div>
     </motion.nav>
   )

@@ -25,7 +25,7 @@ function App() {
       <AuthProvider>
         <SocketProvider>
           <Router future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-blue-900">
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-blue-900 overflow-x-hidden">
               <Navbar workspace={workspace} setWorkspace={setWorkspace} />
               <motion.main
                 initial={{ opacity: 0 }}
