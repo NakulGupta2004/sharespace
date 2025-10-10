@@ -52,11 +52,16 @@ interface Task {
   title: string;
   description: string;
   assignee?: { _id: string; name: string; email: string } | string;
+  assignedTo?: { _id: string; name: string; email: string } | string;
+  createdBy?: { _id: string; name: string; email: string } | string;
   dueDate?: string;
   priority: string;
   status: string;
   team?: { _id: string; name: string; email: string } | string;
   labels?: string[];
+  completedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface Activity {
@@ -1456,7 +1461,7 @@ export default function TeamWorkspacePage() {
                                     <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
                                     <span>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}</span>
                                   </div>
-                                  <span className="font-medium">{typeof task.team === 'string' ? task.team : task.team?.name || 'Unknown Team'}</span>
+                                  <span className="font-medium">{selectedTeam?.name || 'Unknown Team'}</span>
                                 </div>
                                 {task.labels?.length ? (
                                   <div className="flex flex-wrap gap-2 mt-4">
@@ -1670,11 +1675,11 @@ export default function TeamWorkspacePage() {
                                   <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
                                     <div className="flex items-center space-x-2">
                                       <Users className="h-4 w-4" />
-                                      <span>Team: {task.team?.name}</span>
+                                      <span>Team: {selectedTeam?.name || 'Unknown Team'}</span>
                                     </div>
                                     <div className="flex items-center space-x-2">
                                       <User className="h-4 w-4" />
-                                      <span>By: {task.createdBy?.name}</span>
+                                      <span>By: {typeof task.createdBy === 'object' && task.createdBy ? task.createdBy.name : 'Unknown'}</span>
                                     </div>
                                   </div>
                                   {task.description && (
