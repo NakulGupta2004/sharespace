@@ -90,7 +90,7 @@ export default function TeamWorkspacePage() {
   const [teamDpFile, setTeamDpFile] = useState<File | null>(null);
   const [adminUserIds, setAdminUserIds] = useState<string[]>([]);
   const [isUploadingDp, setIsUploadingDp] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'tasks' | 'inventory' | 'activity' | 'groupchat'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'tasks' | 'inventory' | 'activity' | 'mytasks' | 'groupchat'>('overview');
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [taskFilter, setTaskFilter] = useState<string>('all');
@@ -118,6 +118,27 @@ export default function TeamWorkspacePage() {
   const [showClearChatConfirm, setShowClearChatConfirm] = useState(false);
   const [showDeleteMessageConfirm, setShowDeleteMessageConfirm] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarType, setSidebarType] = useState<'teams' | 'mytasks' | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.emoji-picker-container') && !target.closest('.emoji-button')) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    if (showEmojiPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showEmojiPicker]);
 
   // Fetch users for team creation modal
   useEffect(() => {
@@ -719,6 +740,7 @@ export default function TeamWorkspacePage() {
     { id: 'tasks', label: 'Tasks', icon: CheckSquare },
     { id: 'inventory', label: 'Inventory', icon: Package },
     { id: 'activity', label: 'Activity', icon: MessageSquare },
+    { id: 'mytasks', label: 'My Tasks', icon: CheckSquare },
     { id: 'groupchat', label: 'Group Chat', icon: MessageCircle }
   ];
 
@@ -769,28 +791,7 @@ export default function TeamWorkspacePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-gray-800 overflow-hidden">
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 TeamWorkspacePage.tsx:1402 Uncaught ReferenceError: showDeleteConfirm is not defined
-    at TeamWorkspacePage (TeamWorkspacePage.tsx:1402:35)
-TeamWorkspacePage.tsx:1402 Uncaught ReferenceError: showDeleteConfirm is not defined
-    at TeamWorkspacePage (TeamWorkspacePage.tsx:1402:35)
-chunk-GKJBSOWT.js?v=982f2da3:14032 The above error occurred in the <TeamWorkspacePage> component:
-
-    at TeamWorkspacePage (http://localhost:3000/src/pages/TeamWorkspacePage.tsx?t=1758906413702:39:20)
-    at main
-    at MotionComponent (http://localhost:3000/node_modules/.vite/deps/framer-motion.js?v=982f2da3:277:40)
-    at div
-    at Router (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=982f2da3:4501:15)
-    at BrowserRouter (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=982f2da3:5247:5)
-    at SocketProvider (http://localhost:3000/src/context/SocketContext.tsx:22:34)
-    at AuthProvider (http://localhost:3000/src/context/AuthContext.tsx:23:32)
-    at ThemeProvider (http://localhost:3000/src/context/ThemeContext.tsx:25:3)
-    at App (http://localhost:3000/src/App.tsx?t=1758906414066:38:37)
-
-Consider adding an error boundary to your tree to customize error handling behavior.
-Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
-chunk-GKJBSOWT.js?v=982f2da3:9129 Uncaught ReferenceError: showDeleteConfirm is not defined
-    at TeamWorkspacePage (TeamWorkspacePage.tsx:1402:35)
-py-8">
+      <div className="relative max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -30 }}
@@ -850,170 +851,142 @@ py-8">
               </div>
             </motion.button>
             
-            <motion.button
+            {/* <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className="p-3 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border border-white/50 dark:border-gray-700/50"
               title="Workspace Settings"
             >
               <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-            </motion.button>
+            </motion.button> */}
           </motion.div>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
-          {/* Sidebar - Teams and My Tasks */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Teams Section */}
-            <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="bg-gradient-to-br from-white/90 via-white/80 to-blue-50/70 dark:from-gray-800/90 dark:via-gray-800/80 dark:to-blue-900/30 backdrop-blur-xl rounded-3xl shadow-2xl p-6 border border-white/30 dark:border-gray-700/30 overflow-hidden relative"
+        <div className="flex h-full relative">
+          {/* Navigation Buttons - Fixed to left edge */}
+          <div className="fixed left-0 top-1/2 transform -translate-y-1/2 flex flex-col space-y-2 z-10">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setSidebarOpen(!sidebarOpen || sidebarType !== 'teams');
+                setSidebarType(sidebarType === 'teams' ? null : 'teams');
+              }}
+              className={`flex flex-col items-center space-y-1 px-2 py-3 rounded-r-lg transition-all duration-300 w-16 h-16 justify-center -rotate-90 ${
+                sidebarOpen && sidebarType === 'teams'
+                  ? 'bg-blue-600 text-white shadow-lg'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
             >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-blue-400/20 to-purple-400/20 rounded-full blur-2xl -mr-16 -mt-16"></div>
-              <div className="relative">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                    Your Teams
-                  </h2>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">{teams.length} teams</span>
-                  </div>
-                </div>
-                <motion.div
-                  variants={containerVariants}
-                  initial="hidden"
-                  animate="visible"
-                  className="space-y-3"
-                >
-                  {teams.map((team, _index) => (
-                    <motion.button
-                      key={team._id}
-                      variants={itemVariants}
-                      whileHover={{ scale: 1.02, y: -2 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => setSelectedTeam(team)}
-                      className={`group w-full text-left p-4 rounded-2xl transition-all duration-300 backdrop-blur-sm border relative overflow-hidden ${
-                        selectedTeam?._id === team._id
-                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 border-blue-200 dark:border-blue-700 shadow-md'
-                          : 'bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 border-gray-200 dark:border-gray-600 hover:shadow-md'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-4">
-                        {typeof team.dp_url === 'string' && team.dp_url ? (
-                          <div className="relative">
-                            <img src={team.dp_url} alt="Team DP" className="w-12 h-12 rounded-2xl object-cover shadow-lg" />
-                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
-                          </div>
-                        ) : (
-                          <div className={`relative w-12 h-12 rounded-2xl ${typeof team.color === 'string' ? team.color : (team.color as any)?.name ?? 'bg-blue-500'} flex items-center justify-center text-white text-lg`}>
-                            {typeof team.avatar === 'string' ? team.avatar : (team.avatar as any)?.name ?? ''}
-                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className={`font-semibold truncate ${
-                            selectedTeam?._id === team._id ? 'text-white' : 'text-gray-900 dark:text-white'
-                          }`}>
-                            {typeof team.name === 'string' ? team.name : (team.name as any).name}
-                          </div>
-                          <div className={`text-sm flex items-center space-x-2 ${
-                            selectedTeam?._id === team._id ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
-                          }`}>
-                            <Users className="h-3 w-3" />
-                            <span>{Array.isArray(team.members) ? team.members.length : (typeof team.members === 'number' ? team.members : (typeof team.members === 'object' ? (team.members as any).name : team.members))} members</span>
-                          </div>
-                        </div>
-                        <div className={`${selectedTeam?._id === team._id ? 'text-blue-100' : 'text-gray-400'}`}>
-                          <ChevronRight className="h-5 w-5" />
-                        </div>
-                      </div>
-                    </motion.button>
-                  ))}
-                </motion.div>
-              </div>
-            </motion.div>
+              <Users className="h-5 w-5" />
+              <span className="font-medium text-xs text-center leading-tight">Your Teams</span>
+            </motion.button>
 
-            {/* My Tasks Section */}
-            <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-              className="bg-gradient-to-br from-white/90 via-white/80 to-orange-50/70 dark:from-gray-800/90 dark:via-gray-800/80 dark:to-orange-900/30 backdrop-blur-xl rounded-3xl shadow-2xl p-6 border border-white/30 dark:border-gray-700/30 overflow-hidden relative"
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setActiveTab('mytasks');
+                setSidebarOpen(false);
+                setSidebarType(null);
+              }}
+              className={`flex flex-col items-center space-y-1 px-2 py-3 rounded-r-lg transition-all duration-300 w-16 h-16 justify-center -rotate-90 ${
+                activeTab === 'mytasks'
+                  ? 'bg-orange-600 text-white shadow-lg'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
             >
-              <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-orange-400/20 to-red-400/20 rounded-full blur-2xl -ml-16 -mt-16"></div>
-              <div className="relative">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-bold text-orange-600 dark:text-orange-400">
-                    My Tasks
-                  </h2>
-                  <div className="flex items-center space-x-2">
-                    <CheckSquare className="h-4 w-4 text-orange-500" />
-                    <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">{myTasks.length} tasks</span>
-                  </div>
-                </div>
-                <div className="space-y-3 max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-gray-500">
-                  {myTasks.length === 0 ? (
-                    <div className="text-center py-8">
-                      <CheckSquare className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                      <p className="text-gray-500 dark:text-gray-400 font-medium">No tasks assigned to you</p>
-                      <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Tasks will appear here when assigned</p>
-                    </div>
-                  ) : (
-                    myTasks.map((task) => (
-                      <motion.div
-                        key={task._id}
-                        className="group bg-white/60 dark:bg-gray-700/60 rounded-2xl p-4 border border-gray-200/40 dark:border-gray-600/40 hover:bg-white/80 dark:hover:bg-gray-700/80 hover:shadow-lg transition-all duration-300 hover:border-orange-200/60"
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-gray-900 dark:text-white text-sm truncate group-hover:text-orange-600 transition-colors">{task.title}</h4>
-                            <div className="flex items-center space-x-2 mt-2">
-                              <Users className="h-3 w-3 text-gray-400" />
-                              <p className="text-xs text-gray-600 dark:text-gray-400 truncate">Team: {task.team?.name}</p>
-                            </div>
-                            <div className="flex items-center space-x-2 mt-1">
-                              <User className="h-3 w-3 text-gray-400" />
-                              <p className="text-xs text-gray-500 dark:text-gray-500 truncate">
-                                By: {task.createdBy?.name}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-end space-y-2 ml-2">
-                            <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm ${
-                              task.status === 'completed' ? 'bg-green-100 text-green-800 border border-green-200' :
-                              task.status === 'in-progress' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
-                              task.status === 'pending' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
-                              'bg-red-100 text-red-800 border border-red-200'
-                            }`}>
-                              {task.status}
-                            </span>
-                            {task.status !== 'completed' && (
-                              <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => updateTaskStatus(task._id, 'completed')}
-                                className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-xl hover:bg-green-700 transition-all duration-200 shadow-sm font-medium"
-                              >
-                                ✓ Done
-                              </motion.button>
-                            )}
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </motion.div>
+              <CheckSquare className="h-5 w-5" />
+              <span className="font-medium text-xs text-center leading-tight">My Task</span>
+            </motion.button>
           </div>
 
+          {/* Teams Sidebar */}
+          <AnimatePresence>
+            {sidebarOpen && sidebarType === 'teams' && (
+              <motion.div
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: 320, opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700/50 overflow-hidden"
+              >
+                <div className="p-6 h-full overflow-y-auto">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                      Your Teams
+                    </h2>
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setSidebarOpen(false)}
+                      className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      <X className="h-5 w-5" />
+                    </motion.button>
+                  </div>
+
+                  <motion.div
+                    variants={containerVariants}
+                    initial="hidden"
+                    animate="visible"
+                    className="space-y-3"
+                  >
+                    {teams.map((team, _index) => (
+                      <motion.button
+                        key={team._id}
+                        variants={itemVariants}
+                        whileHover={{ scale: 1.02, y: -2 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          setSelectedTeam(team);
+                          setSidebarOpen(false);
+                        }}
+                        className={`group w-full text-left p-4 rounded-2xl transition-all duration-300 backdrop-blur-sm border relative overflow-hidden ${
+                          selectedTeam?._id === team._id
+                            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 border-blue-200 dark:border-blue-700 shadow-md'
+                            : 'bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 border-gray-200 dark:border-gray-600 hover:shadow-md'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-4">
+                          {typeof team.dp_url === 'string' && team.dp_url ? (
+                            <div className="relative">
+                              <img src={team.dp_url} alt="Team DP" className="w-12 h-12 rounded-2xl object-cover shadow-lg" />
+                              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                            </div>
+                          ) : (
+                            <div className={`relative w-12 h-12 rounded-2xl ${typeof team.color === 'string' ? team.color : (team.color as any)?.name ?? 'bg-blue-500'} flex items-center justify-center text-white text-lg`}>
+                              {typeof team.avatar === 'string' ? team.avatar : (team.avatar as any)?.name ?? ''}
+                              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className={`font-semibold truncate ${
+                              selectedTeam?._id === team._id ? 'text-white' : 'text-gray-900 dark:text-white'
+                            }`}>
+                              {typeof team.name === 'string' ? team.name : (team.name as any).name}
+                            </div>
+                            <div className={`text-sm flex items-center space-x-2 ${
+                              selectedTeam?._id === team._id ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
+                            }`}>
+                              <Users className="h-3 w-3" />
+                              <span>{Array.isArray(team.members) ? team.members.length : (typeof team.members === 'number' ? team.members : (typeof team.members === 'object' ? (team.members as any).name : team.members))} members</span>
+                            </div>
+                          </div>
+                          <div className={`${selectedTeam?._id === team._id ? 'text-blue-100' : 'text-gray-400'}`}>
+                            <ChevronRight className="h-5 w-5" />
+                          </div>
+                        </div>
+                      </motion.button>
+                    ))}
+                  </motion.div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Main Content */}
-          <div className="lg:col-span-3">
+          <div className="flex-1 min-w-0">
             {/* Team Header */}
             <AnimatePresence mode="wait">
               {selectedTeam && (
@@ -1656,6 +1629,86 @@ py-8">
                     </motion.div>
                   )}
 
+                  {/* My Tasks Tab */}
+                  {activeTab === 'mytasks' && (
+                    <motion.div
+                      key="mytasks"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.4 }}
+                      className="space-y-6"
+                    >
+                      <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-xl font-bold text-orange-600 dark:text-orange-400">
+                          My Tasks
+                        </h2>
+                        <div className="flex items-center space-x-2">
+                          <CheckSquare className="h-4 w-4 text-orange-500" />
+                          <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">{myTasks.length} tasks</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        {myTasks.length === 0 ? (
+                          <div className="text-center py-12">
+                            <CheckSquare className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No tasks assigned to you</h3>
+                            <p className="text-gray-500 dark:text-gray-400">Tasks will appear here when assigned</p>
+                          </div>
+                        ) : (
+                          myTasks.map((task) => (
+                            <motion.div
+                              key={task._id}
+                              className="group bg-white/60 dark:bg-gray-700/60 rounded-2xl p-6 border border-gray-200/40 dark:border-gray-600/40 hover:bg-white/80 dark:hover:bg-gray-700/80 hover:shadow-lg transition-all duration-300 hover:border-orange-200/60"
+                              whileHover={{ scale: 1.02, y: -2 }}
+                              whileTap={{ scale: 0.98 }}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-semibold text-gray-900 dark:text-white text-lg truncate group-hover:text-orange-600 transition-colors mb-2">{task.title}</h4>
+                                  <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                                    <div className="flex items-center space-x-2">
+                                      <Users className="h-4 w-4" />
+                                      <span>Team: {task.team?.name}</span>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <User className="h-4 w-4" />
+                                      <span>By: {task.createdBy?.name}</span>
+                                    </div>
+                                  </div>
+                                  {task.description && (
+                                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 line-clamp-2">{task.description}</p>
+                                  )}
+                                </div>
+                                <div className="flex flex-col items-end space-y-3 ml-4">
+                                  <span className={`inline-flex px-3 py-1 rounded-full text-sm font-semibold shadow-sm ${
+                                    task.status === 'completed' ? 'bg-green-100 text-green-800 border border-green-200' :
+                                    task.status === 'in-progress' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                                    task.status === 'pending' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
+                                    'bg-red-100 text-red-800 border border-red-200'
+                                  }`}>
+                                    {task.status}
+                                  </span>
+                                  {task.status !== 'completed' && (
+                                    <motion.button
+                                      whileHover={{ scale: 1.05 }}
+                                      whileTap={{ scale: 0.95 }}
+                                      onClick={() => updateTaskStatus(task._id, 'completed')}
+                                      className="text-sm bg-green-600 text-white px-4 py-2 rounded-xl hover:bg-green-700 transition-all duration-200 shadow-sm font-medium"
+                                    >
+                                      ✓ Mark Done
+                                    </motion.button>
+                                  )}
+                                </div>
+                              </div>
+                            </motion.div>
+                          ))
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+
                   {/* Group Chat Tab */}
                   {activeTab === 'groupchat' && (
                     <motion.div
@@ -1845,9 +1898,46 @@ py-8">
                                 className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-0 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm placeholder-gray-500 dark:placeholder-gray-400 pr-12 transition-all duration-200"
                                 disabled={isSendingMessage}
                               />
-                              <button className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                              <button 
+                                className="emoji-button absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                              >
                                 😊
                               </button>
+                              
+                              {/* Emoji Picker */}
+                              {showEmojiPicker && (
+                                <motion.div
+                                  initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                                  exit={{ opacity: 0, scale: 0.8, y: 10 }}
+                                  className="emoji-picker-container absolute bottom-full right-0 mb-2 w-64 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 z-50"
+                                >
+                                  <div className="grid grid-cols-8 gap-2">
+                                    {[
+                                      '�', '😂', '�😊', '😍', '🥰', '😘', '😉', '😎',
+                                      '🤔', '😮', '😢', '😭', '😤', '😡', '🥺', '😴',
+                                      '👍', '👎', '👌', '✌️', '🤞', '👏', '🙌', '🤝',
+                                      '❤️', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎',
+                                      '🔥', '⭐', '✨', '💫', '🎉', '🎊', '🎈', '🎁',
+                                      '💯', '✅', '❌', '❓', '❗', '💭', '💬', '👋'
+                                    ].map((emoji) => (
+                                      <motion.button
+                                        key={emoji}
+                                        whileHover={{ scale: 1.2 }}
+                                        whileTap={{ scale: 0.9 }}
+                                        onClick={() => {
+                                          setNewMessage(prev => prev + emoji);
+                                          setShowEmojiPicker(false);
+                                        }}
+                                        className="w-8 h-8 flex items-center justify-center text-lg hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                      >
+                                        {emoji}
+                                      </motion.button>
+                                    ))}
+                                  </div>
+                                </motion.div>
+                              )}
                             </div>
                             <motion.button
                               whileHover={{ scale: 1.05 }}

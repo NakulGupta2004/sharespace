@@ -66,9 +66,11 @@ interface Listing {
   isActive?: boolean
   createdAt?: string
   reviews?: number
-  views?: number
-  interested?: number
-  timesRented?: number
+  statistics?: {
+    views: number
+    interested: number
+    successfulRentals: number
+  }
   isFavorited?: boolean
 }
 
@@ -286,9 +288,35 @@ export default function ListingDetailPage() {
     }
   }
 
-  const handleFavorite = () => {
-    setIsFavorited(prev => !prev)
-    // Add API call to save favorite status
+  const handleFavorite = async () => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('sharespace_token');
+      const response = await api.post(`/api/listings/${id}/interested`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.data.success) {
+        setIsFavorited(prev => !prev);
+        // Update the listing statistics in state
+        setListing(prev => prev ? {
+          ...prev,
+          statistics: {
+            views: prev.statistics?.views || 0,
+            interested: response.data.interested,
+            successfulRentals: prev.statistics?.successfulRentals || 0
+          }
+        } : prev);
+        showToast.success(isFavorited ? 'Removed from favorites' : 'Added to favorites');
+      }
+    } catch (error: any) {
+      console.error('Favorite error:', error);
+      showToast.error(error.response?.data?.message || 'Error updating favorite status');
+    }
   }
 
   const handleShare = () => {
@@ -552,7 +580,7 @@ export default function ListingDetailPage() {
                     Views
                   </span>
                   <span className="font-medium text-white">
-                    {listing.views || 124}
+                    {listing.statistics?.views || 0}
                   </span>
                 </div>
                 
@@ -562,7 +590,7 @@ export default function ListingDetailPage() {
                     Interested
                   </span>
                   <span className="font-medium text-white">
-                    {listing.interested || 8}
+                    {listing.statistics?.interested || 0}
                   </span>
                 </div>
                 
@@ -572,7 +600,7 @@ export default function ListingDetailPage() {
                     Times rented
                   </span>
                   <span className="font-medium text-white">
-                    {listing.timesRented || 15}
+                    {listing.statistics?.successfulRentals || 0}
                   </span>
                 </div>
               </div>

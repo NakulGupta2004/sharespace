@@ -439,6 +439,9 @@ router.get('/:id', async (req, res) => {
       });
     }
 
+    // Increment view count
+    await listing.incrementViews();
+
     res.json({
       success: true,
       listing
@@ -490,6 +493,48 @@ router.get('/categories/stats', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching category statistics',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// @route   POST /api/listings/:id/interested
+// @desc    Toggle interested status for a listing
+// @access  Private
+router.post('/:id/interested', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid listing ID format'
+      });
+    }
+
+    const listing = await Listing.findById(id);
+    
+    if (!listing) {
+      return res.status(404).json({
+        success: false,
+        message: 'Listing not found'
+      });
+    }
+
+    // Increment interested count
+    await listing.incrementInterested();
+
+    res.json({
+      success: true,
+      message: 'Interest recorded successfully',
+      interested: listing.statistics.interested
+    });
+
+  } catch (error) {
+    console.error('Toggle interested error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating interest',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }

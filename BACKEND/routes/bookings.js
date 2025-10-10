@@ -248,8 +248,18 @@ router.put('/:id/status', authenticate, async (req, res) => {
 
     console.log('Authorization passed - updating booking status to:', status);
 
+    const oldStatus = booking.status;
     booking.status = status;
     await booking.save();
+
+    // If booking is being marked as completed and wasn't completed before, increment successful rentals
+    if (status === 'completed' && oldStatus !== 'completed') {
+      const listing = await Listing.findById(booking.listingId);
+      if (listing) {
+        listing.statistics.successfulRentals += 1;
+        await listing.save();
+      }
+    }
 
     res.json({
       success: true,

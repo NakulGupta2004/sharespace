@@ -242,6 +242,10 @@ const listingSchema = new mongoose.Schema({
       type: Number,
       default: 0
     },
+    interested: {
+      type: Number,
+      default: 0
+    },
     bookings: {
       type: Number,
       default: 0
@@ -338,6 +342,12 @@ listingSchema.virtual('formattedPrice').get(function() {
 // Method to increment view count
 listingSchema.methods.incrementViews = function() {
   this.statistics.views += 1;
+  return this.save();
+};
+
+// Method to increment interested count
+listingSchema.methods.incrementInterested = function() {
+  this.statistics.interested += 1;
   return this.save();
 };
 
