@@ -161,4 +161,25 @@ router.get('/all', authenticate, async (req, res) => {
   }
 });
 
+// @route   GET /api/users/my-tasks
+// @desc    Get tasks assigned to the current user
+// @access  Private
+router.get('/my-tasks', authenticate, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const Task = require('../models/Task');
+    
+    const tasks = await Task.find({ assignedTo: userId })
+      .populate('assignedTo', 'name email')
+      .populate('createdBy', 'name email')
+      .populate('team', 'name')
+      .sort({ createdAt: -1 });
+    
+    res.json({ success: true, tasks });
+  } catch (error) {
+    console.error('Get my tasks error:', error);
+    res.status(500).json({ success: false, message: 'Server error fetching tasks.' });
+  }
+});
+
 module.exports = router;

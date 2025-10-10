@@ -96,6 +96,58 @@ router.put('/:taskId', authenticate, async (req, res) => {
   }
 });
 
+// Update task
+router.put('/:taskId', authenticate, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { status, title, description, priority, dueDate, assignedTo } = req.body;
+    
+    const task = await Task.findById(req.params.taskId).populate('team');
+    if (!task) return res.status(404).json({ success: false, error: 'Task not found' });
+    
+    // Check if user is member of the team or assigned to the task
+    if (!task.team.members.some(member => member.toString() === userId.toString()) && 
+        task.assignedTo?.toString() !== userId.toString()) {
+      return res.status(403).json({ success: false, error: 'Not authorized' });
+    }
+    
+    const oldStatus = task.status;
+    
+    // Update task fields
+    if (status !== undefined) task.status = status;
+    if (title !== undefined) task.title = title;
+    if (description !== undefined) task.description = description;
+    if (priority !== undefined) task.priority = priority;
+    if (dueDate !== undefined) task.dueDate = dueDate;
+    if (assignedTo !== undefined) task.assignedTo = assignedTo;
+    
+    await task.save();
+    
+    // Log activity for status changes
+    if (status && status !== oldStatus) {
+      await Activity.create({
+        type: 'task_updated',
+        description: `Task "${task.title}" status changed from ${oldStatus} to ${status}`,
+        team: task.team._id,
+        user: userId,
+        metadata: {
+          taskId: req.params.taskId,
+          oldStatus,
+          newStatus: status
+        }
+      });
+    }
+    
+    const populatedTask = await Task.findById(task._id)
+      .populate('assignedTo', 'name email')
+      .populate('createdBy', 'name email');
+    
+    res.json({ success: true, task: populatedTask });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Delete task
 router.delete('/:taskId', authenticate, async (req, res) => {
   try {

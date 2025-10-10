@@ -391,9 +391,10 @@ router.get('/:teamId/tasks', authenticate, async (req, res) => {
     }
     
     console.log('Team members:', team.members.map(m => m.toString()));
-    console.log('User in members:', team.members.some(member => member.toString() === userId));
+    console.log('User ID type:', typeof userId, 'Value:', userId);
+    console.log('User in members:', team.members.some(member => member.toString() === userId.toString()));
     
-    if (!team.members.some(member => member.toString() === userId)) {
+    if (!team.members.some(member => member.toString() === userId.toString())) {
       console.log('User not a team member');
       return res.status(403).json({ success: false, error: 'Not a team member' });
     }
@@ -417,7 +418,7 @@ router.get('/:teamId/activity', authenticate, async (req, res) => {
     const team = await Team.findById(req.params.teamId);
     
     if (!team) return res.status(404).json({ success: false, error: 'Team not found' });
-    if (!team.members.some(member => member.toString() === userId)) return res.status(403).json({ success: false, error: 'Not a team member' });
+    if (!team.members.some(member => member.toString() === userId.toString())) return res.status(403).json({ success: false, error: 'Not a team member' });
     
     const activity = await Activity.find({ team: req.params.teamId })
       .populate('user', 'name email')
@@ -443,9 +444,10 @@ router.get('/:teamId/messages', authenticate, async (req, res) => {
     }
     
     console.log('Team members:', team.members.map(m => m.toString()));
-    console.log('User in members:', team.members.some(member => member.toString() === userId));
+    console.log('User ID type:', typeof userId, 'Value:', userId);
+    console.log('User in members:', team.members.some(member => member.toString() === userId.toString()));
     
-    if (!team.members.some(member => member.toString() === userId)) {
+    if (!team.members.some(member => member.toString() === userId.toString())) {
       console.log('User not a team member');
       return res.status(403).json({ success: false, error: 'Not a team member' });
     }
@@ -479,7 +481,7 @@ router.post('/:teamId/messages', authenticate, async (req, res) => {
     const team = await Team.findById(req.params.teamId);
     
     if (!team) return res.status(404).json({ success: false, error: 'Team not found' });
-    if (!team.members.some(member => member.toString() === userId)) return res.status(403).json({ success: false, error: 'Not a team member' });
+    if (!team.members.some(member => member.toString() === userId.toString())) return res.status(403).json({ success: false, error: 'Not a team member' });
     
     const Message = require('../models/Message');
     const message = new Message({

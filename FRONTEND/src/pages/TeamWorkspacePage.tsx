@@ -18,6 +18,7 @@ import {
   MoreVertical,
   X,
   Crown,
+  ChevronRight,
   Clock,
   Edit2,
   Trash2,
@@ -101,6 +102,7 @@ export default function TeamWorkspacePage() {
   const [taskAssignee, setTaskAssignee] = useState<string>('');
   const [resources, setResources] = useState<Resource[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [myTasks, setMyTasks] = useState<Task[]>([]);
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
   const [groupMessages, setGroupMessages] = useState<GroupMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -158,6 +160,7 @@ export default function TeamWorkspacePage() {
 
   useEffect(() => {
     fetchTeams();
+    fetchMyTasks();
   }, []);
 
   // Fetch functions
@@ -200,6 +203,19 @@ export default function TeamWorkspacePage() {
       else setGroupMessages([]);
     } catch {
       setGroupMessages([]);
+    }
+  }
+
+  async function fetchMyTasks() {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/users/my-tasks`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
+      });
+      const data = await res.json();
+      if (data.success) setMyTasks(data.tasks);
+      else setMyTasks([]);
+    } catch {
+      setMyTasks([]);
     }
   }
 
@@ -593,6 +609,7 @@ export default function TeamWorkspacePage() {
         setTaskAssignee('');
         fetchTasks();
         fetchActivity();
+        fetchMyTasks(); // Refresh personal tasks
       } else {
         alert('Failed to create task');
       }
@@ -652,6 +669,31 @@ export default function TeamWorkspacePage() {
       }
     } catch {
       alert('Error deleting team');
+    }
+  }
+
+  // Update task status
+  async function updateTaskStatus(taskId: string, newStatus: string) {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchMyTasks();
+        fetchTasks();
+        fetchActivity();
+      } else {
+        alert('Failed to update task status');
+      }
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      alert('Error updating task status');
     }
   }
 
@@ -753,83 +795,220 @@ py-8">
         <motion.div
           initial={{ opacity: 0, y: -30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="flex flex-col sm:flex-row items-center justify-between mb-6 sm:mb-8 gap-4 sm:gap-0"
+          transition={{ duration: 0.8 }}
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-8 p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700"
         >
           <div className="text-center sm:text-left">
-            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            <motion.h1 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white"
+            >
               Team Workspace
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-2 text-base sm:text-lg">
-              Collaborate and manage shared resources with elegance
-            </p>
+            </motion.h1>
+            <motion.p 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="text-gray-600 dark:text-gray-400 mt-3 text-base sm:text-lg font-medium"
+            >
+              Collaborate and manage shared resources with elegance ✨
+            </motion.p>
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.6 }}
+              className="flex items-center space-x-4 mt-3"
+            >
+              <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span>{teams.length} Active Teams</span>
+              </div>
+              <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+                <Users className="h-4 w-4" />
+                <span>{selectedTeam ? (Array.isArray(selectedTeam.members) ? selectedTeam.members.length : 0) : 0} Members</span>
+              </div>
+            </motion.div>
           </div>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="inline-flex items-center px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm bg-opacity-90 text-sm sm:text-base"
-            onClick={() => setShowCreateTeamModal(true)}
+          
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, delay: 0.8 }}
+            className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-3"
           >
-            <Plus className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-            Create Team
-          </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05, rotate: 2 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md transition-colors font-medium"
+              onClick={() => setShowCreateTeamModal(true)}
+            >
+              <div className="flex items-center space-x-2">
+                <Plus className="h-5 w-5" />
+                <span>Create Team</span>
+              </div>
+            </motion.button>
+            
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="p-3 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border border-white/50 dark:border-gray-700/50"
+              title="Workspace Settings"
+            >
+              <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+            </motion.button>
+          </motion.div>
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
-          {/* Sidebar - Teams */}
-          <div className="lg:col-span-1">
+          {/* Sidebar - Teams and My Tasks */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Teams Section */}
             <motion.div
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-3xl shadow-2xl p-4 sm:p-6 border border-white/20"
+              className="bg-gradient-to-br from-white/90 via-white/80 to-blue-50/70 dark:from-gray-800/90 dark:via-gray-800/80 dark:to-blue-900/30 backdrop-blur-xl rounded-3xl shadow-2xl p-6 border border-white/30 dark:border-gray-700/30 overflow-hidden relative"
             >
-              <h2 className="text-xl font-semibold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent dark:text-white mb-6">
-                Your Teams
-              </h2>
-              <motion.div
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-                className="space-y-4"
-              >
-                {teams.map((team, _index) => (
-                  <motion.button
-                    key={team._id}
-                    variants={itemVariants}
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setSelectedTeam(team)}
-                    className={`w-full text-left p-4 rounded-2xl transition-all duration-300 backdrop-blur-sm border ${
-                      selectedTeam?._id === team._id
-                        ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg border-blue-300'
-                        : 'bg-white/50 dark:bg-gray-700/50 hover:bg-white/80 dark:hover:bg-gray-700/80 border-white/30 hover:border-white/50'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-4">
-                      {typeof team.dp_url === 'string' && team.dp_url ? (
-                        <img src={team.dp_url} alt="Team DP" className="w-12 h-12 rounded-2xl object-cover shadow-md" />
-                      ) : (
-                        <div className={`w-12 h-12 rounded-2xl bg-gradient-to-r ${typeof team.color === 'string' ? team.color : (team.color as any)?.name ?? ''} flex items-center justify-center text-white text-lg shadow-md`}>
-                          {typeof team.avatar === 'string' ? team.avatar : (team.avatar as any)?.name ?? ''}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-blue-400/20 to-purple-400/20 rounded-full blur-2xl -mr-16 -mt-16"></div>
+              <div className="relative">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                    Your Teams
+                  </h2>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">{teams.length} teams</span>
+                  </div>
+                </div>
+                <motion.div
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="visible"
+                  className="space-y-3"
+                >
+                  {teams.map((team, _index) => (
+                    <motion.button
+                      key={team._id}
+                      variants={itemVariants}
+                      whileHover={{ scale: 1.02, y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setSelectedTeam(team)}
+                      className={`group w-full text-left p-4 rounded-2xl transition-all duration-300 backdrop-blur-sm border relative overflow-hidden ${
+                        selectedTeam?._id === team._id
+                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 border-blue-200 dark:border-blue-700 shadow-md'
+                          : 'bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 border-gray-200 dark:border-gray-600 hover:shadow-md'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-4">
+                        {typeof team.dp_url === 'string' && team.dp_url ? (
+                          <div className="relative">
+                            <img src={team.dp_url} alt="Team DP" className="w-12 h-12 rounded-2xl object-cover shadow-lg" />
+                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                          </div>
+                        ) : (
+                          <div className={`relative w-12 h-12 rounded-2xl ${typeof team.color === 'string' ? team.color : (team.color as any)?.name ?? 'bg-blue-500'} flex items-center justify-center text-white text-lg`}>
+                            {typeof team.avatar === 'string' ? team.avatar : (team.avatar as any)?.name ?? ''}
+                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className={`font-semibold truncate ${
+                            selectedTeam?._id === team._id ? 'text-white' : 'text-gray-900 dark:text-white'
+                          }`}>
+                            {typeof team.name === 'string' ? team.name : (team.name as any).name}
+                          </div>
+                          <div className={`text-sm flex items-center space-x-2 ${
+                            selectedTeam?._id === team._id ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
+                          }`}>
+                            <Users className="h-3 w-3" />
+                            <span>{Array.isArray(team.members) ? team.members.length : (typeof team.members === 'number' ? team.members : (typeof team.members === 'object' ? (team.members as any).name : team.members))} members</span>
+                          </div>
                         </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className={`font-semibold truncate ${
-                          selectedTeam?._id === team._id ? 'text-white' : 'text-gray-900 dark:text-white'
-                        }`}>
-                          {typeof team.name === 'string' ? team.name : (team.name as any).name}
-                        </div>
-                        <div className={`text-sm ${
-                          selectedTeam?._id === team._id ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
-                        }`}>
-                          {Array.isArray(team.members) ? team.members.length : (typeof team.members === 'number' ? team.members : (typeof team.members === 'object' ? (team.members as any).name : team.members))} members
+                        <div className={`${selectedTeam?._id === team._id ? 'text-blue-100' : 'text-gray-400'}`}>
+                          <ChevronRight className="h-5 w-5" />
                         </div>
                       </div>
+                    </motion.button>
+                  ))}
+                </motion.div>
+              </div>
+            </motion.div>
+
+            {/* My Tasks Section */}
+            <motion.div
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="bg-gradient-to-br from-white/90 via-white/80 to-orange-50/70 dark:from-gray-800/90 dark:via-gray-800/80 dark:to-orange-900/30 backdrop-blur-xl rounded-3xl shadow-2xl p-6 border border-white/30 dark:border-gray-700/30 overflow-hidden relative"
+            >
+              <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-orange-400/20 to-red-400/20 rounded-full blur-2xl -ml-16 -mt-16"></div>
+              <div className="relative">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-bold text-orange-600 dark:text-orange-400">
+                    My Tasks
+                  </h2>
+                  <div className="flex items-center space-x-2">
+                    <CheckSquare className="h-4 w-4 text-orange-500" />
+                    <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">{myTasks.length} tasks</span>
+                  </div>
+                </div>
+                <div className="space-y-3 max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-gray-500">
+                  {myTasks.length === 0 ? (
+                    <div className="text-center py-8">
+                      <CheckSquare className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                      <p className="text-gray-500 dark:text-gray-400 font-medium">No tasks assigned to you</p>
+                      <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Tasks will appear here when assigned</p>
                     </div>
-                  </motion.button>
-                ))}
-              </motion.div>
+                  ) : (
+                    myTasks.map((task) => (
+                      <motion.div
+                        key={task._id}
+                        className="group bg-white/60 dark:bg-gray-700/60 rounded-2xl p-4 border border-gray-200/40 dark:border-gray-600/40 hover:bg-white/80 dark:hover:bg-gray-700/80 hover:shadow-lg transition-all duration-300 hover:border-orange-200/60"
+                        whileHover={{ scale: 1.02, y: -2 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-gray-900 dark:text-white text-sm truncate group-hover:text-orange-600 transition-colors">{task.title}</h4>
+                            <div className="flex items-center space-x-2 mt-2">
+                              <Users className="h-3 w-3 text-gray-400" />
+                              <p className="text-xs text-gray-600 dark:text-gray-400 truncate">Team: {task.team?.name}</p>
+                            </div>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <User className="h-3 w-3 text-gray-400" />
+                              <p className="text-xs text-gray-500 dark:text-gray-500 truncate">
+                                By: {task.createdBy?.name}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end space-y-2 ml-2">
+                            <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm ${
+                              task.status === 'completed' ? 'bg-green-100 text-green-800 border border-green-200' :
+                              task.status === 'in-progress' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                              task.status === 'pending' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
+                              'bg-red-100 text-red-800 border border-red-200'
+                            }`}>
+                              {task.status}
+                            </span>
+                            {task.status !== 'completed' && (
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => updateTaskStatus(task._id, 'completed')}
+                                className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-xl hover:bg-green-700 transition-all duration-200 shadow-sm font-medium"
+                              >
+                                ✓ Done
+                              </motion.button>
+                            )}
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))
+                  )}
+                </div>
+              </div>
             </motion.div>
           </div>
 
@@ -851,12 +1030,12 @@ py-8">
                       {selectedTeam?.dp_url ? (
                         <img src={selectedTeam.dp_url} alt="Team DP" className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl object-cover shadow-xl mx-auto sm:mx-0" />
                       ) : (
-                        <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-r ${selectedTeam?.color || 'from-blue-500 to-green-500'} flex items-center justify-center text-white text-2xl sm:text-3xl shadow-xl mx-auto sm:mx-0`}>
+                        <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl ${selectedTeam?.color || 'bg-blue-600'} flex items-center justify-center text-white text-2xl sm:text-3xl shadow-lg mx-auto sm:mx-0`}>
                           {selectedTeam?.name?.charAt(0)?.toUpperCase() || 'T'}
                         </div>
                       )}
                       <div className="text-center sm:text-left flex-1 sm:flex-initial">
-                        <h2 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent dark:text-white">
+                        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
                           {selectedTeam?.name}
                         </h2>
                         <p className="text-gray-600 dark:text-gray-400 mt-1 text-base sm:text-lg">
@@ -872,7 +1051,7 @@ py-8">
                           <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-400 to-blue-500 text-white rounded-xl hover:from-green-500 hover:to-blue-600 shadow-lg transition-all duration-300 text-sm"
+                            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 shadow-md transition-all duration-300 text-sm"
                             onClick={() => setIsCreateTaskModalOpen(true)}
                           >
                             <Plus className="h-4 w-4 mr-2" />
@@ -918,7 +1097,7 @@ py-8">
                         onClick={() => setActiveTab(tab.id as typeof activeTab)}
                         className={`flex items-center space-x-2 sm:space-x-3 py-3 sm:py-4 px-4 sm:px-6 rounded-2xl font-medium text-sm transition-all duration-300 whitespace-nowrap ${
                           activeTab === tab.id
-                            ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
+                            ? 'bg-blue-600 text-white shadow-md'
                             : 'text-gray-500 hover:text-gray-700 hover:bg-white/50 dark:text-gray-400 dark:hover:text-gray-300 dark:hover:bg-gray-700/50'
                         }`}
                       >
@@ -1020,7 +1199,7 @@ py-8">
                                 transition={{ delay: 0.1 * index }}
                                 className="flex items-start space-x-4 p-4 bg-white/70 dark:bg-gray-700/70 backdrop-blur-sm rounded-2xl shadow-md border border-white/30"
                               >
-                                <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-md">
+                                <div className="w-10 h-10 bg-purple-600 rounded-2xl flex items-center justify-center shadow-md">
                                   <User className="h-5 w-5 text-white" />
                                 </div>
                                 <div className="flex-1 min-w-0">
@@ -1091,8 +1270,8 @@ py-8">
                                   <div className="absolute top-4 right-4 z-10">
                                     <div className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm ${
                                       selectedTeam?.admins?.some((admin: any) => admin._id === member._id)
-                                        ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-white'
-                                        : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white'
+                                        ? 'bg-amber-500 text-white'
+                                        : 'bg-blue-600 text-white'
                                     }`}>
                                       {selectedTeam?.admins?.some((admin: any) => admin._id === member._id) ? (
                                         <Crown className="h-3.5 w-3.5" />
@@ -1179,8 +1358,8 @@ py-8">
                                     {/* Decorative bottom border */}
                                     <div className={`mt-4 h-1 rounded-full ${
                                       selectedTeam?.admins?.some((admin: any) => admin._id === member._id)
-                                        ? 'bg-gradient-to-r from-amber-400 to-orange-500'
-                                        : 'bg-gradient-to-r from-blue-400 to-indigo-500'
+                                        ? 'bg-amber-100 dark:bg-amber-900/30'
+                                        : 'bg-blue-100 dark:bg-blue-900/30'
                                     }`}></div>
                                   </div>
                                 </div>
@@ -1237,7 +1416,7 @@ py-8">
                               onClick={() => setTaskFilter(filter)}
                               className={`px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-2xl transition-all duration-300 shadow-md ${
                                 taskFilter === filter
-                                  ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
+                                  ? 'bg-blue-600 text-white shadow-md'
                                   : 'bg-white/70 dark:bg-gray-700/70 backdrop-blur-sm text-gray-700 dark:text-gray-300 hover:bg-white/90 dark:hover:bg-gray-700/90 border border-white/30'
                               }`}
                             >
@@ -1312,7 +1491,7 @@ py-8">
                                       <motion.span
                                         key={label}
                                         whileHover={{ scale: 1.05 }}
-                                        className="px-3 py-1 bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900 dark:to-purple-900 text-blue-800 dark:text-blue-200 rounded-full text-xs font-medium shadow-sm"
+                                        className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-full text-xs font-medium shadow-sm"
                                       >
                                         {label}
                                       </motion.span>
@@ -1491,32 +1670,56 @@ py-8">
                         variants={containerVariants}
                         initial="hidden"
                         animate="visible"
-                        className="bg-white/70 dark:bg-gray-700/70 backdrop-blur-xl rounded-3xl shadow-xl border border-white/20 p-6"
+                        className="bg-gradient-to-br from-white/80 to-gray-50/80 dark:from-gray-800/80 dark:to-gray-900/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/30 dark:border-gray-700/30 overflow-hidden"
                       >
-                        <div className="flex items-center justify-between mb-6">
-                          <div className="flex items-center space-x-3">
-                            <MessageCircle className="h-6 w-6 text-blue-500" />
-                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                              Team Chat
-                            </h3>
+                        {/* Chat Header */}
+                        <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 dark:from-blue-600/20 dark:to-purple-600/20 p-6 border-b border-gray-200/50 dark:border-gray-700/50">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
+                              <div className="relative">
+                                <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
+                                  <MessageCircle className="h-6 w-6 text-white" />
+                                </div>
+                                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white dark:border-gray-800"></div>
+                              </div>
+                              <div>
+                                <h3 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent dark:text-white">
+                                  Team Chat
+                                </h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                  {Array.isArray(selectedTeam?.members) ? selectedTeam.members.length : 0} members online
+                                </p>
+                              </div>
+                            </div>
+                            
+                            {/* Chat Actions */}
+                            <div className="flex items-center space-x-2">
+                              {selectedTeam?.admins?.some(admin => admin._id === user?.id) && (
+                                <motion.button
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={clearGroupChat}
+                                  className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-xl transition-all duration-200"
+                                  title="Clear Chat (Admin Only)"
+                                >
+                                  <RotateCcw className="h-5 w-5" />
+                                </motion.button>
+                              )}
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all duration-200"
+                                title="Chat Settings"
+                              >
+                                <Settings className="h-5 w-5" />
+                              </motion.button>
+                            </div>
                           </div>
-                          
-                          {/* Clear Chat Button (Admin Only) */}
-                          {selectedTeam?.admins?.some(admin => admin._id === user?.id) && (
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={clearGroupChat}
-                              className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                              title="Clear Chat (Admin Only)"
-                            >
-                              <RotateCcw className="h-5 w-5" />
-                            </motion.button>
-                          )}
                         </div>
 
                         {/* Messages Container */}
-                        <div className="h-64 sm:h-80 lg:h-96 overflow-y-auto space-y-3 mb-4 p-2 sm:p-4">
+                        <div className="h-80 sm:h-96 lg:h-[28rem] overflow-y-auto bg-gradient-to-b from-gray-50/30 to-white/30 dark:from-gray-900/30 dark:to-gray-800/30">
+                          <div className="p-4 space-y-4">
                           {groupMessages.length === 0 ? (
                             <div className="text-center text-gray-500 dark:text-gray-400 py-8">
                               <MessageCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -1536,8 +1739,8 @@ py-8">
                                 >
                                   <div className={`max-w-[280px] sm:max-w-xs lg:max-w-md px-3 sm:px-4 py-2 rounded-2xl relative shadow-sm ${
                                     isOwnMessage
-                                      ? 'bg-blue-500 text-white rounded-br-md ml-8 sm:ml-12'
-                                      : 'bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white rounded-bl-md mr-8 sm:mr-12'
+                                      ? 'bg-blue-500 text-white ml-8 sm:ml-12'
+                                      : 'bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white mr-8 sm:mr-12'
                                   }`}>
                                     {/* Message Header */}
                                     <div className="flex items-center justify-between mb-1">
@@ -1626,33 +1829,46 @@ py-8">
                               );
                             })
                           )}
+                          </div>
                         </div>
 
                         {/* Message Input */}
-                        <div className="flex space-x-2">
-                          <input
-                            type="text"
-                            value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && sendGroupMessage()}
-                            placeholder="Type your message..."
-                            className="flex-1 px-3 sm:px-4 py-2 bg-white/50 dark:bg-gray-600/50 border border-gray-200 dark:border-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
-                            disabled={isSendingMessage}
-                          />
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={sendGroupMessage}
-                            disabled={!newMessage.trim() || isSendingMessage}
-                            className="px-4 sm:px-6 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white rounded-xl font-medium transition-colors duration-200 flex items-center space-x-2"
-                          >
-                            {isSendingMessage ? (
-                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                              <MessageCircle className="h-4 w-4" />
-                            )}
-                            <span className="hidden sm:inline">Send</span>
-                          </motion.button>
+                        <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-md p-4 border-t border-gray-200/30 dark:border-gray-700/30">
+                          <div className="flex items-center space-x-3">
+                            <div className="flex-1 relative">
+                              <input
+                                type="text"
+                                value={newMessage}
+                                onChange={(e) => setNewMessage(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && sendGroupMessage()}
+                                placeholder="Type a message..."
+                                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-0 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm placeholder-gray-500 dark:placeholder-gray-400 pr-12 transition-all duration-200"
+                                disabled={isSendingMessage}
+                              />
+                              <button className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                                😊
+                              </button>
+                            </div>
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={sendGroupMessage}
+                              disabled={!newMessage.trim() || isSendingMessage}
+                              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg ${
+                                newMessage.trim() && !isSendingMessage
+                                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white'
+                                  : 'bg-gray-300 dark:bg-gray-600 text-gray-500'
+                              }`}
+                            >
+                              {isSendingMessage ? (
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                                </svg>
+                              )}
+                            </motion.button>
+                          </div>
                         </div>
                       </motion.div>
                     </motion.div>
