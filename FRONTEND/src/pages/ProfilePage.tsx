@@ -35,6 +35,7 @@ import {
   BarChart3
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import api from '../utils/api'
 import toast from 'react-hot-toast'
 
 const ProfilePage = () => {
@@ -92,31 +93,24 @@ const ProfilePage = () => {
         console.log('Making API call with token:', token.substring(0, 20) + '...')
 
         // Fetch profile details
-        const profileResponse = await fetch('http://localhost:5000/api/users/profile', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
+        const profileResponse = await api.get('/api/users/profile')
 
-        if (profileResponse.ok) {
-          const profileData = await profileResponse.json()
-          if (profileData.success) {
-            const userData = profileData.user
-            setProfileData({
-              name: userData.name || '',
-              email: userData.email || '',
-              college_id: userData.college_id || '',
-              phone: userData.phone || '',
-              bio: userData.bio || '',
-              location: userData.location || '',
-              social_links: userData.social_links || {
-                linkedin: '',
-                twitter: '',
-                instagram: ''
-              }
-            })
-          }
+        const profileData = profileResponse.data
+        if (profileData.success) {
+          const userData = profileData.user
+          setProfileData({
+            name: userData.name || '',
+            email: userData.email || '',
+            college_id: userData.college_id || '',
+            phone: userData.phone || '',
+            bio: userData.bio || '',
+            location: userData.location || '',
+            social_links: userData.social_links || {
+              linkedin: '',
+              twitter: '',
+              instagram: ''
+            }
+          })
         }
 
         // Mock stats for now - you can implement real stats later
@@ -150,32 +144,20 @@ const ProfilePage = () => {
   const handleSaveProfile = async () => {
     try {
       setSaving(true)
-      const token = localStorage.getItem('sharespace_token')
-      const response = await fetch('http://localhost:5000/api/users/profile', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: profileData.name,
-          phone: profileData.phone,
-          bio: profileData.bio,
-          location: profileData.location,
-          social_links: profileData.social_links
-        })
+      const response = await api.put('/api/users/profile', {
+        name: profileData.name,
+        phone: profileData.phone,
+        bio: profileData.bio,
+        location: profileData.location,
+        social_links: profileData.social_links
       })
 
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success) {
-          setIsEditing(false)
-          toast.success('Profile updated successfully!')
-        } else {
-          toast.error(data.message || 'Failed to update profile')
-        }
+      const data = response.data
+      if (data.success) {
+        setIsEditing(false)
+        toast.success('Profile updated successfully!')
       } else {
-        toast.error('Failed to update profile')
+        toast.error(data.message || 'Failed to update profile')
       }
     } catch (error: any) {
       console.error('Error updating profile:', error)

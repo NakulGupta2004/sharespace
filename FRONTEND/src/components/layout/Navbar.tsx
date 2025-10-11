@@ -634,6 +634,36 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
                         <span>List Item</span>
                       </Link>
 
+                      {/* Quick Access Icons */}
+                      <div className="flex items-center space-x-4 py-2 border-t border-gray-200 dark:border-gray-700 pt-4 mt-2">
+                        <button
+                          onClick={() => {
+                            setIsChatOpen(true);
+                            setIsMenuOpen(false);
+                          }}
+                          className="flex items-center justify-center w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all duration-200"
+                          aria-label="Open chat"
+                        >
+                          <MessageCircle className="h-6 w-6" />
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setShowNotifications(!showNotifications);
+                            setIsMenuOpen(false);
+                          }}
+                          className="relative flex items-center justify-center w-12 h-12 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
+                          aria-label="Show notifications"
+                        >
+                          <Bell className="h-5 w-5" />
+                          {notifications.filter(n => !n.isRead).length > 0 && (
+                            <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-xs text-white flex items-center justify-center">
+                              {notifications.filter(n => !n.isRead).length}
+                            </span>
+                          )}
+                        </button>
+                      </div>
+
                       {/* Theme Toggle in Menu */}
                       <button
                         onClick={() => {
