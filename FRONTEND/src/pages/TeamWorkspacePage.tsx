@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
+import api from '../utils/api';
 import toast from 'react-hot-toast';
 import {
   Users,
@@ -115,6 +116,8 @@ export default function TeamWorkspacePage() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
   const [showAddResourceModal, setShowAddResourceModal] = useState(false);
+  const [resourceImageFile, setResourceImageFile] = useState<File | null>(null);
+  const [isUploadingResource, setIsUploadingResource] = useState(false);
   const [isEditingTeam, setIsEditingTeam] = useState(false);
   const [editTeamName, setEditTeamName] = useState('');
   const [editTeamDesc, setEditTeamDesc] = useState('');
@@ -148,11 +151,9 @@ export default function TeamWorkspacePage() {
   // Fetch users for team creation modal
   useEffect(() => {
     if (showCreateTeamModal) {
-      fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/users/all`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
-      })
-        .then(res => res.json())
-        .then(data => {
+      api.get('/api/users/all')
+        .then(res => {
+          const data = res.data;
           if (data.success) setAllUsers(data.users);
           else setAllUsers([]);
         })
@@ -163,10 +164,8 @@ export default function TeamWorkspacePage() {
   // Fetch teams on mount
   async function fetchTeams() {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/my`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
-      });
-      const data = await res.json();
+      const res = await api.get('/api/teams/my');
+      const data = res.data;
       if (data.success && Array.isArray(data.teams)) {
         // Remove duplicates based on _id
         const uniqueTeams = data.teams.filter((team: Team, index: number, self: Team[]) => 
@@ -178,7 +177,8 @@ export default function TeamWorkspacePage() {
         setTeams([]);
         setSelectedTeam(null);
       }
-    } catch {
+    } catch (error) {
+      console.error('Error fetching teams:', error);
       setTeams([]);
       setSelectedTeam(null);
     }
@@ -193,10 +193,8 @@ export default function TeamWorkspacePage() {
   async function fetchTasks() {
     if (!selectedTeam) return;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/${selectedTeam._id}/tasks`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
-      });
-      const data = await res.json();
+      const res = await api.get(`/api/teams/${selectedTeam._id}/tasks`);
+      const data = res.data;
       if (data.success) setTasks(data.tasks);
       else setTasks([]);
     } catch {
@@ -207,10 +205,8 @@ export default function TeamWorkspacePage() {
   async function fetchActivity() {
     if (!selectedTeam) return;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/${selectedTeam._id}/activity`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
-      });
-      const data = await res.json();
+      const res = await api.get(`/api/teams/${selectedTeam._id}/activity`);
+      const data = res.data;
       if (data.success) setRecentActivity(data.activity);
       else setRecentActivity([]);
     } catch {
@@ -221,10 +217,8 @@ export default function TeamWorkspacePage() {
   async function fetchGroupMessages() {
     if (!selectedTeam) return;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/${selectedTeam._id}/messages`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
-      });
-      const data = await res.json();
+      const res = await api.get(`/api/teams/${selectedTeam._id}/messages`);
+      const data = res.data;
       if (data.success) setGroupMessages(data.messages);
       else setGroupMessages([]);
     } catch {
@@ -234,10 +228,8 @@ export default function TeamWorkspacePage() {
 
   async function fetchMyTasks() {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/users/my-tasks`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
-      });
-      const data = await res.json();
+      const res = await api.get(`/api/users/my-tasks`);
+      const data = res.data;
       if (data.success) setMyTasks(data.tasks);
       else setMyTasks([]);
     } catch {
@@ -287,12 +279,9 @@ export default function TeamWorkspacePage() {
     if (!selectedTeam) return;
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/teams/${selectedTeam._id}/messages/clear`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
-      });
+      const res = await api.delete(`/api/teams/${selectedTeam._id}/messages/clear`);
       
-      const data = await res.json();
+      const data = res.data;
       if (data.success) {
         setGroupMessages([]);
         setShowClearChatConfirm(false);
@@ -309,16 +298,9 @@ export default function TeamWorkspacePage() {
     if (!newContent.trim()) return;
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/messages/${messageId}/edit`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}`
-        },
-        body: JSON.stringify({ content: newContent.trim() })
-      });
+      const res = await api.put(`/api/teams/messages/${messageId}/edit`, { content: newContent.trim() });
       
-      const data = await res.json();
+      const data = res.data;
       if (data.success) {
         setGroupMessages(prev => prev.map(msg => 
           msg._id === messageId 
@@ -345,12 +327,9 @@ export default function TeamWorkspacePage() {
     if (!messageToDelete) return;
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/messages/${messageToDelete}/delete`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}` }
-      });
+      const res = await api.delete(`/api/teams/messages/${messageToDelete}/delete`);
       
-      const data = await res.json();
+      const data = res.data;
       if (data.success) {
         setGroupMessages(prev => prev.filter(msg => msg._id !== messageToDelete));
         setShowDeleteMessageConfirm(false);
@@ -370,11 +349,12 @@ export default function TeamWorkspacePage() {
     async function fetchResources() {
       if (!selectedTeam) return;
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/${selectedTeam._id}/resources`);
-        const data = await res.json();
+        const res = await api.get(`/api/teams/${selectedTeam._id}/resources`);
+        const data = res.data;
         if (data.success) setResources(data.resources);
         else setResources([]);
-      } catch {
+      } catch (error) {
+        console.error('Error fetching resources:', error);
         setResources([]);
       }
     }
@@ -515,21 +495,14 @@ export default function TeamWorkspacePage() {
       setIsUploadingDp(false);
     }
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}`
-        },
-        body: JSON.stringify({
-          name: teamName,
-          description: teamDesc,
-          memberIds: filteredUserIds,
-          adminIds: finalAdminIds,
-          dp_url
-        })
+      const res = await api.post(`/api/teams/create`, {
+        name: teamName,
+        description: teamDesc,
+        memberIds: filteredUserIds,
+        adminIds: finalAdminIds,
+        dp_url
       });
-      const data = await res.json();
+      const data = res.data;
       if (data.success) {
         setShowCreateTeamModal(false);
         setTeamName(''); setTeamDesc(''); setSelectedUserIds([]); setUserSearch(''); setTeamDpFile(null); setAdminUserIds([]);
@@ -543,39 +516,67 @@ export default function TeamWorkspacePage() {
   async function handleAddResource(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!selectedTeam) return;
+    
+    setIsUploadingResource(true);
+    
     const form = e.currentTarget as HTMLFormElement & {
       name: { value: string };
       description: { value: string };
       quantity: { value: string };
       status: { value: string };
     };
+    
+    let imageUrl = '';
+    
+    // Upload image to Cloudinary if provided
+    if (resourceImageFile) {
+      const formData = new FormData();
+      formData.append('file', resourceImageFile);
+      formData.append('upload_preset', 'sharespace');
+      formData.append('folder', 'sharespace/resources');
+      
+      try {
+        const cloudinaryRes = await fetch('https://api.cloudinary.com/v1_1/dz5flpohk/image/upload', {
+          method: 'POST',
+          body: formData
+        });
+        const cloudinaryData = await cloudinaryRes.json();
+        if (cloudinaryData.secure_url) {
+          imageUrl = cloudinaryData.secure_url;
+        }
+      } catch (error) {
+        console.error('Error uploading to Cloudinary:', error);
+        toast.error('Failed to upload image');
+        setIsUploadingResource(false);
+        return;
+      }
+    }
+    
     const body = {
       name: form.name.value,
       description: form.description.value,
       quantity: Number(form.quantity.value),
       status: form.status.value,
-      owner: user?.id
+      owner: user?.id,
+      image_url: imageUrl
     };
+    
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/${selectedTeam._id}/resources`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}`
-        },
-        body: JSON.stringify(body)
-      });
-      const data = await res.json();
+      const res = await api.post(`/api/teams/${selectedTeam._id}/resources`, body);
+      const data = res.data;
       if (data.success) {
         setResources(data.resources);
         setShowAddResourceModal(false);
+        setResourceImageFile(null);
+        toast.success('Resource added successfully!');
       } else {
-        alert(`Error: ${data.error || 'Failed to add resource'}`);
+        toast.error(`Error: ${data.error || 'Failed to add resource'}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding resource:', error);
-      alert('Failed to add resource. Please try again.');
-      setShowAddResourceModal(false);
+      toast.error(error.response?.data?.error || 'Failed to add resource. Please try again.');
+    } finally {
+      setIsUploadingResource(false);
     }
   }
 
@@ -583,15 +584,8 @@ export default function TeamWorkspacePage() {
   async function handleRemoveMember(memberId: string) {
     if (!selectedTeam) return;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/${selectedTeam._id}/remove-member`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}`
-        },
-        body: JSON.stringify({ memberId })
-      });
-      const data = await res.json();
+      const res = await api.post(`/api/teams/${selectedTeam._id}/remove-member`, { memberId });
+      const data = res.data;
       if (data.success) {
         // Refresh teams
         fetchTeams();
@@ -609,23 +603,16 @@ export default function TeamWorkspacePage() {
     if (!selectedTeam || !taskTitle.trim()) return;
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tasks`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}`
-        },
-        body: JSON.stringify({
-          title: taskTitle,
-          description: taskDescription,
-          teamId: selectedTeam._id,
-          assignedTo: taskAssignee || null,
-          priority: taskPriority,
-          dueDate: taskDueDate || null
-        })
+      const res = await api.post(`/api/tasks`, {
+        title: taskTitle,
+        description: taskDescription,
+        teamId: selectedTeam._id,
+        assignedTo: taskAssignee || null,
+        priority: taskPriority,
+        dueDate: taskDueDate || null
       });
 
-      const data = await res.json();
+      const data = res.data;
       if (data.success) {
         setIsCreateTaskModalOpen(false);
         setTaskTitle('');
@@ -650,18 +637,11 @@ export default function TeamWorkspacePage() {
     e.preventDefault();
     if (!selectedTeam || !editTeamName.trim()) return;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/${selectedTeam._id}/update`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}`
-        },
-        body: JSON.stringify({
-          name: editTeamName,
-          description: editTeamDesc
-        })
+      const res = await api.put(`/api/teams/${selectedTeam._id}/update`, {
+        name: editTeamName,
+        description: editTeamDesc
       });
-      const data = await res.json();
+      const data = res.data;
       if (data.success) {
         setIsEditingTeam(false);
         setEditTeamName('');
@@ -679,13 +659,8 @@ export default function TeamWorkspacePage() {
   async function handleDeleteTeam() {
     if (!selectedTeam) return;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/teams/${selectedTeam._id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}`
-        }
-      });
-      const data = await res.json();
+      const res = await api.delete(`/api/teams/${selectedTeam._id}`);
+      const data = res.data;
       if (data.success) {
         setShowSettingsModal(false);
         setSelectedTeam(null);
@@ -701,15 +676,8 @@ export default function TeamWorkspacePage() {
   // Update task status
   async function updateTaskStatus(taskId: string, newStatus: string) {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tasks/${taskId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('sharespace_token')}`
-        },
-        body: JSON.stringify({ status: newStatus })
-      });
-      const data = await res.json();
+      const res = await api.put(`/api/tasks/${taskId}`, { status: newStatus });
+      const data = res.data;
       if (data.success) {
         fetchMyTasks();
         fetchTasks();
@@ -1507,11 +1475,11 @@ export default function TeamWorkspacePage() {
                         className="flex items-center justify-between"
                       >
                         <div className="flex items-center space-x-4">
-                          <div className="p-4 bg-gradient-to-r from-green-400 to-blue-500 rounded-3xl shadow-lg">
+                          <div className="p-4 bg-cyan-600 rounded-3xl shadow-lg">
                             <Package className="h-8 w-8 text-white" />
                           </div>
                           <div>
-                            <h3 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent dark:text-white">
+                            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
                               Team Inventory
                             </h3>
                             <p className="text-gray-600 dark:text-gray-400">Manage shared resources</p>
@@ -1520,7 +1488,7 @@ export default function TeamWorkspacePage() {
                         <motion.button
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
-                          className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-400 to-blue-500 text-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
+                          className="inline-flex items-center px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold"
                           onClick={() => setShowAddResourceModal(true)}
                         >
                           <Plus className="h-5 w-5 mr-2" />
@@ -2289,7 +2257,7 @@ export default function TeamWorkspacePage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+                <h2 className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">
                   Add Resource
                 </h2>
                 <motion.button
@@ -2302,15 +2270,42 @@ export default function TeamWorkspacePage() {
                 </motion.button>
               </div>
               <form onSubmit={handleAddResource} className="space-y-6">
+                {/* Image Upload */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                    Name
+                    Resource Image (Optional)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setResourceImageFile(e.target.files?.[0] || null)}
+                      className="hidden"
+                      id="resource-image-upload"
+                    />
+                    <label
+                      htmlFor="resource-image-upload"
+                      className="flex items-center justify-center w-full px-4 py-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300"
+                    >
+                      <div className="text-center">
+                        <Package className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                          {resourceImageFile ? resourceImageFile.name : 'Click to upload image'}
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                    Name *
                   </label>
                   <input
                     type="text"
                     name="name"
                     required
-                    className="w-full rounded-2xl border border-gray-200 dark:border-gray-600 px-4 py-3 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300"
+                    className="w-full rounded-2xl border border-gray-200 dark:border-gray-600 px-4 py-3 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-300"
                   />
                 </div>
                 <div>
@@ -2320,7 +2315,7 @@ export default function TeamWorkspacePage() {
                   <textarea
                     name="description"
                     rows={3}
-                    className="w-full rounded-2xl border border-gray-200 dark:border-gray-600 px-4 py-3 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 resize-none"
+                    className="w-full rounded-2xl border border-gray-200 dark:border-gray-600 px-4 py-3 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-300 resize-none"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -2333,7 +2328,7 @@ export default function TeamWorkspacePage() {
                       name="quantity"
                       min={1}
                       defaultValue={1}
-                      className="w-full rounded-2xl border border-gray-200 dark:border-gray-600 px-4 py-3 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300"
+                      className="w-full rounded-2xl border border-gray-200 dark:border-gray-600 px-4 py-3 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-300"
                     />
                   </div>
                   <div>
@@ -2342,7 +2337,7 @@ export default function TeamWorkspacePage() {
                     </label>
                     <select
                       name="status"
-                      className="w-full rounded-2xl border border-gray-200 dark:border-gray-600 px-4 py-3 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300"
+                      className="w-full rounded-2xl border border-gray-200 dark:border-gray-600 px-4 py-3 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-300"
                     >
                       <option value="available">Available</option>
                       <option value="in_use">In Use</option>
@@ -2355,8 +2350,11 @@ export default function TeamWorkspacePage() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     type="button"
-                    onClick={() => setShowAddResourceModal(false)}
-                    className="flex-1 px-6 py-3 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 backdrop-blur-sm"
+                    onClick={() => {
+                      setShowAddResourceModal(false);
+                      setResourceImageFile(null);
+                    }}
+                    className="flex-1 px-6 py-3 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 backdrop-blur-sm font-medium"
                   >
                     Cancel
                   </motion.button>
@@ -2364,9 +2362,10 @@ export default function TeamWorkspacePage() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     type="submit"
-                    className="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-2xl hover:from-green-600 hover:to-blue-600 shadow-lg transition-all duration-300"
+                    disabled={isUploadingResource}
+                    className="flex-1 px-6 py-3 bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-400 text-white rounded-2xl shadow-lg transition-all duration-300 font-semibold"
                   >
-                    Add Resource
+                    {isUploadingResource ? 'Adding...' : 'Add Resource'}
                   </motion.button>
                 </div>
               </form>
