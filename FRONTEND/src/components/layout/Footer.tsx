@@ -10,10 +10,10 @@ export default function Footer() {
             {/* Logo and Description */}
             <div className="col-span-1 md:col-span-2">
               <Link to="/" className="flex items-center space-x-2 mb-4">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-blue-500 to-green-500">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
                   <ShoppingCart className="h-5 w-5 text-white" />
                 </div>
-                <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+                <span className="text-xl font-bold text-blue-600">
                   ShareSpace
                 </span>
               </Link>

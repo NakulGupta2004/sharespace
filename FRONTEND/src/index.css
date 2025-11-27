@@ -17,11 +17,13 @@
     font-family: 'Inter', system-ui, sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
     overflow-x: hidden;
+    scroll-behavior: smooth;
   }
   
   html {
     scroll-behavior: smooth;
     overflow-x: hidden;
+    scroll-padding-top: 80px;
   }
 }
 
@@ -89,6 +91,7 @@
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 1;
+    line-clamp: 1;
   }
   
   .line-clamp-2 {
@@ -96,6 +99,7 @@
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 
   .shadow-glass {
@@ -104,6 +108,22 @@
 
   .shadow-glass-lg {
     box-shadow: 0 25px 50px -12px rgba(31, 38, 135, 0.5);
+  }
+
+  .smooth-scroll {
+    scroll-behavior: smooth;
+  }
+
+  .scroll-smooth-padding {
+    scroll-padding-top: 80px;
+  }
+
+  .fade-in-up {
+    animation: smoothFadeInUp 0.6s ease-out forwards;
+  }
+
+  .fade-in {
+    animation: smoothFadeIn 0.6s ease-out forwards;
   }
 }
 
@@ -131,6 +151,26 @@
   }
   100% {
     background-position: 1000px 0;
+  }
+}
+
+@keyframes smoothFadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes smoothFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 

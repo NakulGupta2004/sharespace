@@ -199,16 +199,16 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
       animate={{ y: 0 }}
       className="sticky top-0 z-50 w-full border-b border-gray-200/20 bg-white/80 backdrop-blur-lg dark:bg-gray-900/80 dark:border-gray-700/20"
     >
-      <div className="mx-auto max-w-7xl px-2 sm:px-4 lg:px-8">
+      <div className="mx-auto max-w-7xl px-1 sm:px-2 lg:px-4">
         <div className="flex h-12 sm:h-16 items-center justify-between">
           {/* Mobile: Compact Logo + Hamburger */}
           <div className="flex md:hidden items-center space-x-16 flex-1">
             {/* Mobile Logo - Smaller */}
             <Link to="/" className="flex items-center space-x-1">
-              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-r from-blue-500 to-green-500">
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-600">
                 <ShoppingCart className="h-4 w-4 text-white" />
               </div>
-              <span className="text-sm font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+              <span className="text-sm font-bold text-blue-600">
                 ShareSpace
               </span>
             </Link>
@@ -233,12 +233,12 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
                 <div className="relative">
                   <button
                     onClick={() => setIsProfileOpen(!isProfileOpen)}
-                    className="flex items-center space-x-2 rounded-full bg-gray-100 p-1 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
+                    className="flex items-center space-x-2 rounded-full bg-blue-50 p-1 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 transition-colors"
                   >
                     <img
                       src={user.avatar_url || `https://ui-avatars.com/api/?name=${user.name}&background=random`}
                       alt={user.name}
-                      className="h-7 w-7 rounded-full"
+                      className="h-7 w-7 rounded-full border border-blue-300 dark:border-cyan-400"
                     />
                   </button>
 
@@ -288,7 +288,7 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
 
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="rounded-md p-1.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+                className="rounded-md p-1.5 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-cyan-400 dark:hover:bg-gray-800 transition-colors"
               >
                 {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
@@ -320,10 +320,10 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
                 whileTap={{ scale: 0.95 }}
                 className="flex items-center space-x-2"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-blue-500 to-green-500">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
                   <ShoppingCart className="h-5 w-5 text-white" />
                 </div>
-                <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+                <span className="text-xl font-bold text-blue-600">
                   ShareSpace
                 </span>
               </motion.div>
@@ -347,7 +347,7 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
               <>
                 <Link
                   to="/dashboard"
-                  className="flex items-center space-x-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+                  className="flex items-center space-x-1 rounded-lg px-3 py-2 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700 dark:text-cyan-400 dark:hover:bg-gray-800 dark:hover:text-cyan-300"
                 >
                   <Users className="h-4 w-4" />
                   <span>Dashboard</span>
@@ -355,7 +355,7 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
                 
                 <Link
                   to="/create-listing"
-                  className="flex items-center space-x-1 rounded-lg bg-gradient-to-r from-blue-500 to-green-500 px-4 py-2 text-sm font-medium text-white transition-all hover:from-blue-600 hover:to-green-600 hover:scale-105"
+                  className="flex items-center space-x-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-blue-700 hover:scale-105"
                 >
                   <Plus className="h-4 w-4" />
                   <span>List Item</span>
@@ -365,16 +365,16 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
                 {/* Message Icon */}
                 <button
                   type="button"
-                  className="relative p-2 rounded-full hover:bg-blue-100 focus:outline-none"
+                  className="relative p-2 rounded-full bg-cyan-50 hover:bg-cyan-100 focus:outline-none transition-colors dark:bg-cyan-900/30 dark:hover:bg-cyan-900/50"
                   aria-label="Open chat"
                   onClick={() => setIsChatOpen(true)}
                 >
-                  <MessageCircle className="w-6 h-6 text-blue-600" />
+                  <MessageCircle className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                 </button>
 
                 <div className="relative">
                   <button
-                    className="relative rounded-full p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+                    className="relative rounded-full p-2 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-cyan-400 dark:hover:bg-gray-800 dark:hover:text-cyan-300 transition-colors"
                     onClick={() => setShowNotifications(!showNotifications)}
                   >
                     <Bell className="h-5 w-5" />
@@ -439,7 +439,7 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
                           </ul>
                         )}
                         <button
-                          className="mt-4 w-full bg-blue-500 text-white rounded-lg py-2 text-sm font-semibold hover:bg-blue-600"
+                          className="mt-4 w-full bg-blue-600 text-white rounded-lg py-2 text-sm font-semibold hover:bg-blue-700 transition-all shadow-md"
                           onClick={async () => {
                             try {
                               await api.post('/api/teams/notifications/mark-read', {}, {
@@ -583,7 +583,7 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
 
             <button
               onClick={toggleTheme}
-              className="rounded-full p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
+              className="rounded-full p-2 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-cyan-400 dark:hover:bg-gray-800 dark:hover:text-cyan-300 transition-colors"
             >
               {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
             </button>
@@ -618,10 +618,10 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
                       {/* Authenticated User Menu */}
                       <Link
                         to="/dashboard"
-                        className="flex items-center space-x-3 rounded-xl px-4 py-3 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
+                        className="flex items-center space-x-3 rounded-xl px-4 py-3 text-base font-medium text-blue-600 dark:text-cyan-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200"
                         onClick={() => setIsMenuOpen(false)}
                       >
-                        <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        <Users className="h-5 w-5" />
                         <span>Dashboard</span>
                       </Link>
 
@@ -641,7 +641,7 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
                             setIsChatOpen(true);
                             setIsMenuOpen(false);
                           }}
-                          className="flex items-center justify-center w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all duration-200"
+                          className="flex items-center justify-center w-12 h-12 rounded-xl bg-cyan-50 dark:bg-cyan-900/20 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-100 dark:hover:bg-cyan-900/30 transition-all duration-200"
                           aria-label="Open chat"
                         >
                           <MessageCircle className="h-6 w-6" />
@@ -652,7 +652,7 @@ export default function Navbar({ workspace, setWorkspace }: { workspace: 'market
                             setShowNotifications(!showNotifications);
                             setIsMenuOpen(false);
                           }}
-                          className="relative flex items-center justify-center w-12 h-12 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
+                          className="relative flex items-center justify-center w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-cyan-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all duration-200"
                           aria-label="Show notifications"
                         >
                           <Bell className="h-5 w-5" />
