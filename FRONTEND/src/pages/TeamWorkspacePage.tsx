@@ -351,6 +351,7 @@ export default function TeamWorkspacePage() {
       try {
         const res = await api.get(`/api/teams/${selectedTeam._id}/resources`);
         const data = res.data;
+        console.log('Resources fetched:', data);
         if (data.success) setResources(data.resources);
         else setResources([]);
       } catch (error) {
@@ -524,31 +525,23 @@ export default function TeamWorkspacePage() {
       description: { value: string };
       quantity: { value: string };
       status: { value: string };
+      image_url: { value: string };
     };
     
-    let imageUrl = '';
+    let imageUrl = form.image_url.value.trim();
     
-    // Upload image to Cloudinary if provided
-    if (resourceImageFile) {
-      const formData = new FormData();
-      formData.append('file', resourceImageFile);
-      formData.append('upload_preset', 'sharespace');
-      formData.append('folder', 'sharespace/resources');
-      
+    // If user provided a file instead of URL, upload to Cloudinary
+    if (resourceImageFile && !imageUrl) {
       try {
-        const cloudinaryRes = await fetch('https://api.cloudinary.com/v1_1/dz5flpohk/image/upload', {
-          method: 'POST',
-          body: formData
-        });
-        const cloudinaryData = await cloudinaryRes.json();
-        if (cloudinaryData.secure_url) {
-          imageUrl = cloudinaryData.secure_url;
-        }
+        console.log('Uploading image to Cloudinary...');
+        const { uploadImageToCloudinary } = await import('../utils/cloudinaryService');
+        imageUrl = await uploadImageToCloudinary(resourceImageFile);
+        console.log('Image uploaded successfully:', imageUrl);
       } catch (error) {
         console.error('Error uploading to Cloudinary:', error);
-        toast.error('Failed to upload image');
-        setIsUploadingResource(false);
-        return;
+        toast.error('Failed to upload image. You can add a resource without an image.');
+        // Continue without image
+        imageUrl = '';
       }
     }
     
@@ -561,10 +554,14 @@ export default function TeamWorkspacePage() {
       image_url: imageUrl
     };
     
+    console.log('Sending resource data:', body);
+    
     try {
       const res = await api.post(`/api/teams/${selectedTeam._id}/resources`, body);
       const data = res.data;
+      console.log('Resource response:', data);
       if (data.success) {
+        console.log('Resources after add:', data.resources);
         setResources(data.resources);
         setShowAddResourceModal(false);
         setResourceImageFile(null);
@@ -1517,11 +1514,11 @@ export default function TeamWorkspacePage() {
                             <table className="min-w-full divide-y divide-gray-200/50 dark:divide-gray-700/50">
                               <thead className="bg-gray-50/50 dark:bg-gray-700/50">
                                 <tr>
+                                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Image</th>
                                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Name</th>
                                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Description</th>
                                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Quantity</th>
                                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Owner</th>
                                 </tr>
                               </thead>
                               <tbody className="bg-white/50 dark:bg-gray-800/50 divide-y divide-gray-200/30 dark:divide-gray-700/30">
@@ -1534,6 +1531,24 @@ export default function TeamWorkspacePage() {
                                     whileHover={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
                                     className="transition-colors duration-200"
                                   >
+                                    <td className="px-6 py-4">
+                                      {r.image_url && r.image_url.trim() ? (
+                                        <img 
+                                          src={r.image_url} 
+                                          alt={r.name}
+                                          className="h-12 w-12 rounded-lg object-cover shadow-md"
+                                          onError={(e) => {
+                                            console.error('Image failed to load:', r.image_url);
+                                            e.currentTarget.style.display = 'none';
+                                          }}
+                                          onLoad={() => console.log('Image loaded:', r.image_url)}
+                                        />
+                                      ) : (
+                                        <div className="h-12 w-12 rounded-lg bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
+                                          <Package className="h-6 w-6 text-gray-500 dark:text-gray-400" />
+                                        </div>
+                                      )}
+                                    </td>
                                     <td className="px-6 py-4 font-semibold text-gray-900 dark:text-white">{r.name}</td>
                                     <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{r.description}</td>
                                     <td className="px-6 py-4 text-center font-medium">{r.quantity}</td>
@@ -1546,7 +1561,6 @@ export default function TeamWorkspacePage() {
                                         {r.status}
                                       </span>
                                     </td>
-                                    <td className="px-6 py-4 text-gray-900 dark:text-white">{r.owner?.name || 'N/A'}</td>
                                   </motion.tr>
                                 ))}
                               </tbody>
@@ -2270,30 +2284,47 @@ export default function TeamWorkspacePage() {
                 </motion.button>
               </div>
               <form onSubmit={handleAddResource} className="space-y-6">
-                {/* Image Upload */}
+                {/* Image Upload or URL */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
                     Resource Image (Optional)
                   </label>
-                  <div className="relative">
+                  <div className="space-y-3">
+                    {/* File Upload */}
+                    <div className="relative">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setResourceImageFile(e.target.files?.[0] || null)}
+                        className="hidden"
+                        id="resource-image-upload"
+                      />
+                      <label
+                        htmlFor="resource-image-upload"
+                        className="flex items-center justify-center w-full px-4 py-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300"
+                      >
+                        <div className="text-center">
+                          <Package className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                            {resourceImageFile ? resourceImageFile.name : 'Click to upload image'}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">or paste URL below</p>
+                        </div>
+                      </label>
+                    </div>
+                    {/* OR Divider */}
+                    <div className="flex items-center space-x-2">
+                      <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600"></div>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">OR</span>
+                      <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600"></div>
+                    </div>
+                    {/* Image URL Input */}
                     <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => setResourceImageFile(e.target.files?.[0] || null)}
-                      className="hidden"
-                      id="resource-image-upload"
+                      type="url"
+                      name="image_url"
+                      placeholder="https://example.com/image.jpg"
+                      className="w-full rounded-2xl border border-gray-200 dark:border-gray-600 px-4 py-3 bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-300"
                     />
-                    <label
-                      htmlFor="resource-image-upload"
-                      className="flex items-center justify-center w-full px-4 py-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300"
-                    >
-                      <div className="text-center">
-                        <Package className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                          {resourceImageFile ? resourceImageFile.name : 'Click to upload image'}
-                        </p>
-                      </div>
-                    </label>
                   </div>
                 </div>
 

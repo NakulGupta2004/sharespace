@@ -6,6 +6,7 @@ const ResourceSchema = new mongoose.Schema({
   quantity: { type: Number, default: 1 },
   owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   status: { type: String, enum: ['available', 'in_use', 'maintenance'], default: 'available' },
+  image_url: { type: String, default: '' },
   lastUpdated: { type: Date, default: Date.now }
 });
 

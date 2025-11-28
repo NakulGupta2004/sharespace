@@ -64,22 +64,29 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-blue-900 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Background grid pattern */}
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[size:40px_40px] dark:bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)]"></div>
+      
+      {/* Subtle blur orbs */}
+      <div className="absolute top-10 right-20 w-72 h-72 bg-cyan-400/10 rounded-full blur-3xl"></div>
+      <div className="absolute bottom-10 left-20 w-96 h-96 bg-blue-400/8 rounded-full blur-3xl"></div>
+      
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}
-        className="max-w-md w-full"
+        className="max-w-md w-full relative z-10"
       >
-        <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-strong p-8 dark:bg-gray-800/80">
+        <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 dark:bg-gray-800/80 border border-white/20 dark:border-gray-700/50">
           {/* Logo */}
           <div className="text-center mb-8">
             <Link to="/" className="inline-flex items-center space-x-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-r from-blue-500 to-green-500">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors">
                 <ShoppingCart className="h-6 w-6 text-white" />
               </div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
-                ShareSpace
+              <span className="text-2xl font-black text-gray-900 dark:text-white">
+                Share<span className="text-cyan-600">Space</span>
               </span>
             </Link>
             
@@ -125,13 +132,13 @@ export default function RegisterPage() {
             <div className="mb-8">
               <div className="flex items-center justify-center space-x-4">
                 <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
-                  step >= 1 ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-500'
+                  step >= 1 ? 'bg-cyan-600 text-white' : 'bg-gray-200 text-gray-500'
                 }`}>
                   1
                 </div>
-                <div className={`h-1 w-16 ${step >= 2 ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
+                <div className={`h-1 w-16 ${step >= 2 ? 'bg-cyan-600' : 'bg-gray-200'}`}></div>
                 <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
-                  step >= 2 ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-500'
+                  step >= 2 ? 'bg-cyan-600 text-white' : 'bg-gray-200 text-gray-500'
                 }`}>
                   2
                 </div>
@@ -145,14 +152,14 @@ export default function RegisterPage() {
 
           {/* Step 1: Basic Information */}
           {step === 1 && (
-            <form className="space-y-6">
+            <form className="space-y-5">
               {/* Name */}
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label htmlFor="name" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Full Name
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <User className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-cyan-600" />
                   <input
                     id="name"
                     name="name"
@@ -160,7 +167,7 @@ export default function RegisterPage() {
                     value={formData.name}
                     onChange={handleChange}
                     required
-                    className="w-full rounded-lg border border-gray-200 bg-white/50 py-3 pl-10 pr-4 text-gray-900 placeholder-gray-400 backdrop-blur-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-700/50 dark:text-white dark:placeholder-gray-500"
+                    className="w-full rounded-2xl border border-gray-200 bg-white/60 dark:bg-gray-700/60 py-3 pl-12 pr-4 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all duration-300 font-medium backdrop-blur-sm"
                     placeholder="Your full name"
                   />
                 </div>
@@ -168,11 +175,11 @@ export default function RegisterPage() {
 
               {/* Email */}
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label htmlFor="email" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   College Email
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-cyan-600" />
                   <input
                     id="email"
                     name="email"
@@ -180,22 +187,22 @@ export default function RegisterPage() {
                     value={formData.email}
                     onChange={handleChange}
                     required
-                    className="w-full rounded-lg border border-gray-200 bg-white/50 py-3 pl-10 pr-4 text-gray-900 placeholder-gray-400 backdrop-blur-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-700/50 dark:text-white dark:placeholder-gray-500"
+                    className="w-full rounded-2xl border border-gray-200 bg-white/60 dark:bg-gray-700/60 py-3 pl-12 pr-4 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all duration-300 font-medium backdrop-blur-sm"
                     placeholder="your.email@college.edu"
                   />
                 </div>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 font-medium">
                   Must be your official college email address
                 </p>
               </div>
 
               {/* College ID */}
               <div>
-                <label htmlFor="college_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label htmlFor="college_id" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Student ID
                 </label>
                 <div className="relative">
-                  <GraduationCap className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <GraduationCap className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-cyan-600" />
                   <input
                     id="college_id"
                     name="college_id"
@@ -203,7 +210,7 @@ export default function RegisterPage() {
                     value={formData.college_id}
                     onChange={handleChange}
                     required
-                    className="w-full rounded-lg border border-gray-200 bg-white/50 py-3 pl-10 pr-4 text-gray-900 placeholder-gray-400 backdrop-blur-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-700/50 dark:text-white dark:placeholder-gray-500"
+                    className="w-full rounded-2xl border border-gray-200 bg-white/60 dark:bg-gray-700/60 py-3 pl-12 pr-4 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all duration-300 font-medium backdrop-blur-sm"
                     placeholder="Your student ID"
                   />
                 </div>
@@ -211,44 +218,46 @@ export default function RegisterPage() {
 
               {/* Phone (Optional) */}
               <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label htmlFor="phone" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Phone Number <span className="text-gray-400">(Optional)</span>
                 </label>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <Phone className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-cyan-600" />
                   <input
                     id="phone"
                     name="phone"
                     type="tel"
                     value={formData.phone}
                     onChange={handleChange}
-                    className="w-full rounded-lg border border-gray-200 bg-white/50 py-3 pl-10 pr-4 text-gray-900 placeholder-gray-400 backdrop-blur-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-700/50 dark:text-white dark:placeholder-gray-500"
+                    className="w-full rounded-2xl border border-gray-200 bg-white/60 dark:bg-gray-700/60 py-3 pl-12 pr-4 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all duration-300 font-medium backdrop-blur-sm"
                     placeholder="Your phone number"
                   />
                 </div>
               </div>
 
-              <button
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 type="button"
                 onClick={() => setStep(2)}
                 disabled={!validateStep1()}
-                className="w-full rounded-lg bg-gradient-to-r from-blue-500 to-green-500 py-3 text-white font-semibold transition-all hover:from-blue-600 hover:to-green-600 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                className="w-full rounded-2xl bg-cyan-600 hover:bg-cyan-700 py-3 text-white font-bold transition-all shadow-lg hover:shadow-xl active:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-cyan-600"
               >
                 Continue
-              </button>
+              </motion.button>
             </form>
           )}
 
           {/* Step 2: Password */}
           {step === 2 && (
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-5">
               {/* Password */}
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label htmlFor="password" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Password
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-cyan-600" />
                   <input
                     id="password"
                     name="password"
@@ -256,13 +265,13 @@ export default function RegisterPage() {
                     value={formData.password}
                     onChange={handleChange}
                     required
-                    className="w-full rounded-lg border border-gray-200 bg-white/50 py-3 pl-10 pr-12 text-gray-900 placeholder-gray-400 backdrop-blur-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-700/50 dark:text-white dark:placeholder-gray-500"
+                    className="w-full rounded-2xl border border-gray-200 bg-white/60 dark:bg-gray-700/60 py-3 pl-12 pr-12 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all duration-300 font-medium backdrop-blur-sm"
                     placeholder="Create a password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
@@ -271,11 +280,11 @@ export default function RegisterPage() {
 
               {/* Confirm Password */}
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Confirm Password
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-cyan-600" />
                   <input
                     id="confirmPassword"
                     name="confirmPassword"
@@ -283,19 +292,19 @@ export default function RegisterPage() {
                     value={formData.confirmPassword}
                     onChange={handleChange}
                     required
-                    className="w-full rounded-lg border border-gray-200 bg-white/50 py-3 pl-10 pr-12 text-gray-900 placeholder-gray-400 backdrop-blur-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-700/50 dark:text-white dark:placeholder-gray-500"
+                    className="w-full rounded-2xl border border-gray-200 bg-white/60 dark:bg-gray-700/60 py-3 pl-12 pr-12 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 transition-all duration-300 font-medium backdrop-blur-sm"
                     placeholder="Confirm your password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
                   >
                     {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
                 {formData.password && formData.confirmPassword && formData.password !== formData.confirmPassword && (
-                  <p className="mt-1 text-xs text-red-500">Passwords do not match</p>
+                  <p className="mt-1 text-xs text-red-500 font-semibold">Passwords do not match</p>
                 )}
               </div>
 
@@ -305,35 +314,39 @@ export default function RegisterPage() {
                   type="checkbox"
                   id="terms"
                   required
-                  className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer"
                 />
-                <label htmlFor="terms" className="ml-2 text-sm text-gray-600 dark:text-gray-400">
+                <label htmlFor="terms" className="ml-2 text-sm text-gray-600 dark:text-gray-400 font-medium">
                   I agree to the{' '}
-                  <Link to="/terms" className="text-blue-600 hover:text-blue-500 dark:text-blue-400">
+                  <Link to="/terms" className="text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300 font-semibold">
                     Terms of Service
                   </Link>{' '}
                   and{' '}
-                  <Link to="/privacy" className="text-blue-600 hover:text-blue-500 dark:text-blue-400">
+                  <Link to="/privacy" className="text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300 font-semibold">
                     Privacy Policy
                   </Link>
                 </label>
               </div>
 
-              <div className="flex space-x-3">
-                <button
+              <div className="flex space-x-3 mt-6">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   type="button"
                   onClick={() => setStep(1)}
-                  className="flex-1 rounded-lg border border-gray-300 bg-white py-3 text-gray-700 font-semibold transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
+                  className="flex-1 rounded-2xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 py-3 text-gray-700 dark:text-white font-bold transition-all hover:bg-gray-50 dark:hover:bg-gray-600 shadow-md hover:shadow-lg"
                 >
                   Back
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   type="submit"
                   disabled={!validateStep2() || isLoading}
-                  className="flex-1 rounded-lg bg-gradient-to-r from-blue-500 to-green-500 py-3 text-white font-semibold transition-all hover:from-blue-600 hover:to-green-600 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  className="flex-1 rounded-2xl bg-cyan-600 hover:bg-cyan-700 py-3 text-white font-bold transition-all shadow-lg hover:shadow-xl active:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-cyan-600"
                 >
                   {isLoading ? 'Creating Account...' : 'Create Account'}
-                </button>
+                </motion.button>
               </div>
             </form>
           )}
@@ -341,23 +354,25 @@ export default function RegisterPage() {
           {/* Step 3: Success */}
           {step === 3 && (
             <div className="text-center space-y-6">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 dark:bg-green-900/20 dark:border-green-800">
-                <p className="text-sm text-green-700 dark:text-green-300">
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-2xl p-4 shadow-md">
+                <p className="text-sm text-green-700 dark:text-green-300 font-semibold">
                   Please check your email and click the verification link to activate your account.
                 </p>
               </div>
               
               <div className="space-y-3">
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => navigate('/login')}
-                  className="w-full rounded-lg bg-gradient-to-r from-blue-500 to-green-500 py-3 text-white font-semibold transition-all hover:from-blue-600 hover:to-green-600 hover:scale-105"
+                  className="w-full rounded-2xl bg-cyan-600 hover:bg-cyan-700 py-3 text-white font-bold transition-all shadow-lg hover:shadow-xl"
                 >
                   Go to Sign In
-                </button>
+                </motion.button>
                 
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
                   Didn't receive the email? Check your spam folder or{' '}
-                  <button className="text-blue-600 hover:text-blue-500 dark:text-blue-400">
+                  <button className="text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300 font-semibold">
                     resend verification
                   </button>
                 </p>
@@ -368,11 +383,11 @@ export default function RegisterPage() {
           {/* Sign in link */}
           {step < 3 && (
             <div className="mt-6 text-center">
-              <p className="text-gray-600 dark:text-gray-400">
+              <p className="text-gray-600 dark:text-gray-400 font-medium">
                 Already have an account?{' '}
                 <Link
                   to="/login"
-                  className="text-blue-600 hover:text-blue-500 font-medium dark:text-blue-400 dark:hover:text-blue-300"
+                  className="text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300 font-bold transition-colors"
                 >
                   Sign in
                 </Link>

@@ -219,7 +219,7 @@ export default function HomePage() {
           <div className="absolute top-40 right-32 w-96 h-96 bg-cyan-400/6 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
           <div className="absolute bottom-20 left-1/3 w-80 h-80 bg-blue-400/8 rounded-full blur-3xl animate-pulse" style={{animationDelay: '4s'}}></div>
           {/* Grid Pattern */}
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.05)_1px,transparent_1px)] bg-[size:50px_50px] dark:bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)]"></div>
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.08)_2px,transparent_2px),linear-gradient(90deg,rgba(0,0,0,0.08)_2px,transparent_2px)] bg-[size:100px_100px] dark:bg-[linear-gradient(rgba(255,255,255,0.05)_2px,transparent_2px),linear-gradient(90deg,rgba(255,255,255,0.05)_2px,transparent_2px)]"></div>
         </div>
         
         <div className="relative z-10 mx-auto max-w-7xl px-1 sm:px-2 lg:px-4 text-center">
@@ -313,7 +313,7 @@ export default function HomePage() {
       {/* Categories */}
       <section className="relative py-24 bg-gradient-to-b from-white to-blue-50 dark:from-gray-900 dark:to-gray-800">
         {/* Background Effects */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[size:40px_40px] dark:bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)]"></div>
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.05)_2px,transparent_2px),linear-gradient(90deg,rgba(0,0,0,0.05)_2px,transparent_2px)] bg-[size:80px_80px] dark:bg-[linear-gradient(rgba(255,255,255,0.03)_2px,transparent_2px),linear-gradient(90deg,rgba(255,255,255,0.03)_2px,transparent_2px)]"></div>
         <div className="absolute top-10 right-10 w-72 h-72 bg-blue-400/8 rounded-full blur-3xl"></div>
         <div className="absolute bottom-10 left-10 w-96 h-96 bg-cyan-400/6 rounded-full blur-3xl"></div>
         
@@ -581,7 +581,7 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-blue-900 to-blue-800 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
           <div className="absolute inset-0 bg-black/20 dark:bg-black/30"></div>
           {/* Grid Pattern */}
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:50px_50px]"></div>
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_2px,transparent_2px),linear-gradient(90deg,rgba(255,255,255,0.04)_2px,transparent_2px)] bg-[size:100px_100px]"></div>
           {/* Animated Orbs with Enhanced Effect */}
           <div className="absolute top-10 left-10 w-96 h-96 bg-blue-400/15 rounded-full blur-3xl animate-pulse"></div>
           <div className="absolute bottom-10 right-10 w-80 h-80 bg-cyan-400/12 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>

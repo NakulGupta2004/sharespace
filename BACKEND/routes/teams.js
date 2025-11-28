@@ -210,15 +210,26 @@ router.get('/my', authenticate, async (req, res) => {
 // Add a pooled resource to a team
 router.post('/:teamId/resources', authenticate, async (req, res) => {
   try {
-    const { name, description, quantity, owner, status } = req.body;
+    const { name, description, quantity, owner, status, image_url } = req.body;
     const userId = req.user.userId;
     
     const team = await Team.findById(req.params.teamId);
     if (!team) return res.status(404).json({ success: false, error: 'Team not found' });
     
-    if (!team.members.some(member => member.toString() === userId)) return res.status(403).json({ success: false, error: 'Not a team member' });
+    console.log('=== ADD RESOURCE DEBUG ===');
+    console.log('userId:', userId, 'type:', typeof userId);
+    console.log('userId.toString():', userId.toString());
+    console.log('team.members:', team.members);
+    console.log('team.members mapped:', team.members.map(m => ({ id: m, toString: m.toString() })));
+    console.log('Member check result:', team.members.some(member => {
+      const result = member.toString() === userId.toString();
+      console.log(`  Comparing ${member.toString()} === ${userId.toString()}: ${result}`);
+      return result;
+    }));
     
-    team.resources.push({ name, description, quantity, owner, status });
+    if (!team.members.some(member => member.toString() === userId.toString())) return res.status(403).json({ success: false, error: 'Not a team member' });
+    
+    team.resources.push({ name, description, quantity, owner, status, image_url });
     await team.save();
     
     // Log activity
