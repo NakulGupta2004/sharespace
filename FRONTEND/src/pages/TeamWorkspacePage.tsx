@@ -437,6 +437,18 @@ export default function TeamWorkspacePage() {
       }
     };
 
+    const handleVideoCallInvite = (data: any) => {
+      console.log('📞 Video call invite received:', data);
+      // If the invite is for the current team, automatically open the video call
+      if (data.teamId === selectedTeam?._id) {
+        setShowTeamVideoCall(true);
+        toast.success(`${data.initiatorName} is starting a team video call!`);
+      } else {
+        // If it's for a different team, just show a notification
+        toast.success(`${data.initiatorName} is starting a video call in ${data.teamName}`);
+      }
+    };
+
     socket.on('new_team_message', handleNewTeamMessage);
     socket.on('team_message_sent', handleTeamMessageSent);
     socket.on('team_message_error', handleTeamMessageError);
@@ -446,6 +458,7 @@ export default function TeamWorkspacePage() {
     socket.on('invite_accepted', handleInviteAccepted);
     socket.on('invite_rejected', handleInviteRejected);
     socket.on('team_member_joined', handleTeamMemberJoined);
+    socket.on('videoCall:invite', handleVideoCallInvite);
 
     return () => {
       socket.off('new_team_message', handleNewTeamMessage);
@@ -457,6 +470,7 @@ export default function TeamWorkspacePage() {
       socket.off('invite_accepted', handleInviteAccepted);
       socket.off('invite_rejected', handleInviteRejected);
       socket.off('team_member_joined', handleTeamMemberJoined);
+      socket.off('videoCall:invite', handleVideoCallInvite);
     };
   }, [socket, isConnected, selectedTeam]);
 

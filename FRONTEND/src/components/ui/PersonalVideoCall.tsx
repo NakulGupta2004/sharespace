@@ -242,30 +242,45 @@ export const PersonalVideoCall: React.FC<PersonalVideoCallProps> = ({
   const endCall = () => {
     setCallActive(false);
 
-    // Close peer connection and stop all tracks
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.getSenders().forEach(sender => {
-        sender.track?.stop();
-      });
-      peerConnectionRef.current.close();
-      peerConnectionRef.current = null;
-    }
-
-    // Stop local stream and all tracks
+    // Stop local stream tracks FIRST
     if (localStream) {
       localStream.getTracks().forEach(track => {
+        track.enabled = false;
         track.stop();
       });
+      setLocalStream(null);
     }
 
     // Stop remote stream tracks
     if (remoteStream) {
       remoteStream.getTracks().forEach(track => {
+        track.enabled = false;
         track.stop();
       });
+      setRemoteStream(null);
     }
 
-    // Clear video refs
+    // Close peer connection and stop all tracks
+    if (peerConnectionRef.current) {
+      // Stop all senders
+      peerConnectionRef.current.getSenders().forEach(sender => {
+        if (sender.track) {
+          sender.track.enabled = false;
+          sender.track.stop();
+        }
+      });
+      // Stop all receivers
+      peerConnectionRef.current.getReceivers().forEach(receiver => {
+        if (receiver.track) {
+          receiver.track.enabled = false;
+          receiver.track.stop();
+        }
+      });
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+
+    // Clear video refs and srcObject
     if (localVideoRef.current) {
       localVideoRef.current.srcObject = null;
     }

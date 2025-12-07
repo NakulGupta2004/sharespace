@@ -263,13 +263,48 @@ io.on('connection', (socket) => {
   // ===== VIDEO CALL EVENTS =====
 
   // Team Video Call Events
-  socket.on('videoCall:join', (data) => {
+  socket.on('videoCall:join', async (data) => {
     const { teamId, userId, userName, callId, isTeamCall } = data;
     console.log(`User ${userId} (${userName}) joining video call in team ${teamId}`);
     
     // Store call info
     socket.callId = callId;
     socket.teamId = teamId;
+    
+    if (isTeamCall) {
+      try {
+        // Get team members to send invites
+        const Team = require('./models/Team');
+        const team = await Team.findById(teamId);
+        
+        console.log(`Team found: ${team?.name}, Members:`, team?.members);
+        
+        if (team && team.members && team.members.length > 0) {
+          console.log(`📞 Sending video call invites to ${team.members.length} members`);
+          // Send video call invite to all team members except the initiator
+          team.members.forEach(memberId => {
+            const memberIdStr = memberId.toString ? memberId.toString() : memberId;
+            const userIdStr = userId.toString ? userId.toString() : userId;
+            
+            if (memberIdStr !== userIdStr) {
+              console.log(`📞 Sending invite to user ${memberIdStr}`);
+              io.to(`user_${memberIdStr}`).emit('videoCall:invite', {
+                callId,
+                teamId,
+                teamName: team.name,
+                initiatorId: userId,
+                initiatorName: userName,
+                isTeamCall: true
+              });
+            }
+          });
+        } else {
+          console.log(`No members found or team not found for ID ${teamId}`);
+        }
+      } catch (err) {
+        console.error('Error sending video call invites:', err);
+      }
+    }
     
     // Notify other participants in the team that someone joined
     socket.to(`team_${teamId}`).emit('videoCall:user-joined', {

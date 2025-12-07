@@ -70,6 +70,19 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     }
   };
 
+  const handleInvite = (data: {
+    callId: string;
+    teamId: string;
+    teamName: string;
+    initiatorId: string;
+    initiatorName: string;
+    isTeamCall: boolean;
+  }) => {
+    // This handler receives invites for this component
+    // Log it for debugging purposes
+    console.log(`Received invite from ${data.initiatorName} to join team video call in ${data.teamName}`);
+  };
+
   const createPeerConnection = async (peerId: string, initiator: boolean) => {
     const peerConnection = new RTCPeerConnection({
       iceServers: [
@@ -228,6 +241,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     socket?.on('videoCall:offer', handleOffer);
     socket?.on('videoCall:answer', handleAnswer);
     socket?.on('videoCall:ice-candidate', handleIceCandidate);
+    socket?.on('videoCall:invite', handleInvite);
 
     return () => {
       socket?.off('videoCall:user-joined', handleUserJoined);
@@ -235,8 +249,9 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       socket?.off('videoCall:offer', handleOffer);
       socket?.off('videoCall:answer', handleAnswer);
       socket?.off('videoCall:ice-candidate', handleIceCandidate);
+      socket?.off('videoCall:invite', handleInvite);
     };
-  }, [socket, handleUserJoined, handleUserLeft, handleOffer, handleAnswer, handleIceCandidate]);
+  }, [socket, handleUserJoined, handleUserLeft, handleOffer, handleAnswer, handleIceCandidate, handleInvite]);
 
   const toggleAudio = () => {
     if (localStream) {
@@ -271,33 +286,56 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   const endCall = () => {
     setCallActive(false);
 
+    // Stop all local stream tracks FIRST
+    if (localStream) {
+      localStream.getTracks().forEach(track => {
+        track.enabled = false; // Disable first
+        track.stop();
+      });
+      setLocalStream(null);
+    }
+
     // Close all peer connections and stop their tracks
     Object.values(peerConnectionsRef.current).forEach(pc => {
-      pc.getSenders().forEach(sender => {
-        sender.track?.stop();
-      });
-      pc.close();
+      if (pc) {
+        // Stop all senders
+        pc.getSenders().forEach(sender => {
+          if (sender.track) {
+            sender.track.enabled = false;
+            sender.track.stop();
+          }
+        });
+        // Stop all receivers
+        pc.getReceivers().forEach(receiver => {
+          if (receiver.track) {
+            receiver.track.enabled = false;
+            receiver.track.stop();
+          }
+        });
+        pc.close();
+      }
     });
     peerConnectionsRef.current = {};
 
-    // Stop local stream and all tracks
-    if (localStream) {
-      localStream.getTracks().forEach(track => {
-        track.stop();
-      });
-    }
-
-    // Clear video ref
+    // Clear video ref and srcObject
     if (localVideoRef.current) {
       localVideoRef.current.srcObject = null;
     }
 
     // Clear all remote video refs
     Object.keys(remoteVideoRefs.current).forEach(key => {
-      if (remoteVideoRefs.current[key]) {
-        remoteVideoRefs.current[key].srcObject = null;
+      const ref = remoteVideoRefs.current[key];
+      if (ref) {
+        if (ref.srcObject instanceof MediaStream) {
+          ref.srcObject.getTracks().forEach(track => {
+            track.enabled = false;
+            track.stop();
+          });
+        }
+        ref.srcObject = null;
       }
     });
+    remoteVideoRefs.current = {};
 
     // Notify others
     socket?.emit('videoCall:leave', {
@@ -305,7 +343,10 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       userId: user?.id
     });
 
-    setTimeout(onClose, 300);
+    // Add a small delay to ensure all tracks are stopped before closing
+    setTimeout(() => {
+      onClose();
+    }, 100);
   };
 
   return (

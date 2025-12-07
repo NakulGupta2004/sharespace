@@ -20,6 +20,30 @@ router.post('/create', authenticate, async (req, res) => {
     const members = [new mongoose.Types.ObjectId(creatorId)];
     const admins = [new mongoose.Types.ObjectId(creatorId)];
     
+    // Add selected members and admins directly (not just invites)
+    if (memberIds && memberIds.length > 0) {
+      const filteredMemberIds = memberIds.filter(id => id && id !== creatorId && id !== '');
+      filteredMemberIds.forEach(id => {
+        if (!members.some(m => m.toString() === id)) {
+          members.push(new mongoose.Types.ObjectId(id));
+        }
+      });
+    }
+    
+    // Add selected admins
+    if (adminIds && adminIds.length > 0) {
+      const filteredAdminIds = adminIds.filter(id => id && id !== creatorId && id !== '');
+      filteredAdminIds.forEach(id => {
+        if (!admins.some(a => a.toString() === id)) {
+          admins.push(new mongoose.Types.ObjectId(id));
+        }
+        // Also ensure they're in members
+        if (!members.some(m => m.toString() === id)) {
+          members.push(new mongoose.Types.ObjectId(id));
+        }
+      });
+    }
+    
     const team = new Team({
       name,
       description,
@@ -30,13 +54,14 @@ router.post('/create', authenticate, async (req, res) => {
     });
     await team.save();
     
-    // Send invites to selected members (except creator)
+    // Send invites AND notifications to selected members
     if (memberIds && memberIds.length > 0) {
       const filteredMemberIds = memberIds.filter(id => id && id !== creatorId && id !== '');
       const invitePromises = filteredMemberIds
         .map(async (memberId) => {
           const user = await User.findById(memberId);
           if (user) {
+            // Send invite notification
             user.pendingTeamInvites.push({
               teamId: team._id,
               teamName: team.name,
@@ -58,7 +83,12 @@ router.post('/create', authenticate, async (req, res) => {
       await Promise.all(invitePromises);
     }
     
-    res.json({ success: true, team });
+    // Populate and return the team with member details
+    const populatedTeam = await Team.findById(team._id)
+      .populate('members', 'name email _id')
+      .populate('admins', 'name email _id');
+    
+    res.json({ success: true, team: populatedTeam });
   } catch (err) {
     console.error('Team creation error:', err);
     res.status(500).json({ success: false, error: err.message });
@@ -306,6 +336,68 @@ router.put('/:teamId/update', authenticate, async (req, res) => {
     
     res.json({ success: true, team });
   } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Add a member to team (admin endpoint)
+router.post('/:teamId/add-member', authenticate, async (req, res) => {
+  try {
+    const { memberId } = req.body;
+    const userId = req.user.userId;
+    const { teamId } = req.params;
+
+    if (!memberId) {
+      return res.status(400).json({ success: false, error: 'Member ID is required' });
+    }
+
+    const team = await Team.findById(teamId);
+    if (!team) return res.status(404).json({ success: false, error: 'Team not found' });
+
+    // Check if user is admin
+    if (!team.admins.some(admin => admin.toString() === userId.toString())) {
+      return res.status(403).json({ success: false, error: 'Not authorized' });
+    }
+
+    const member = await User.findById(memberId);
+    if (!member) return res.status(404).json({ success: false, error: 'User not found' });
+
+    // Check if already a member
+    if (team.members.some(id => id.toString() === memberId)) {
+      return res.status(400).json({ success: false, error: 'User is already a member' });
+    }
+
+    // Add user to team
+    team.members.push(mongoose.Types.ObjectId(memberId));
+    await team.save();
+
+    // Create notification
+    const notification = new Notification({
+      userId: memberId,
+      type: 'team_member_added',
+      title: 'Added to Team',
+      message: `You have been added to the team "${team.name}"`,
+      data: { teamId: team._id, teamName: team.name, addedBy: userId }
+    });
+    await notification.save();
+
+    // Populate members for response
+    const populatedTeam = await Team.findById(teamId)
+      .populate('members', 'name email _id')
+      .populate('admins', 'name email _id');
+
+    // Emit socket event
+    const io = req.app.get('io');
+    io.to(`team_${teamId}`).emit('team_member_joined', { 
+      teamId, 
+      userId: memberId, 
+      userName: member.name,
+      members: populatedTeam.members 
+    });
+
+    res.json({ success: true, team: populatedTeam });
+  } catch (err) {
+    console.error('Add member error:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
