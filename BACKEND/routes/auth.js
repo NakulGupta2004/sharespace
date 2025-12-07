@@ -185,12 +185,13 @@ router.post('/login', async (req, res) => {
     }
 
     // Check if user is verified (disabled for development)
-    if (process.env.NODE_ENV === 'production' && !user.verified) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please verify your email before logging in'
-      });
-    }
+    // Verification temporarily disabled - can be re-enabled later
+    // if (process.env.NODE_ENV === 'production' && !user.verified) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: 'Please verify your email before logging in'
+    //   });
+    // }
 
     // Update last login
     user.lastActive = Date.now();
