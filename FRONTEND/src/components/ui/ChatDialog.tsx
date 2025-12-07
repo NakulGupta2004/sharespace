@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { showToast } from '../../utils/toast';
 import api from '../../utils/api';
+import { Video } from 'lucide-react';
 
 interface User {
   _id?: string;
@@ -24,9 +25,10 @@ interface Message {
 interface ChatDialogProps {
   user: User;
   onClose: () => void;
+  onStartVideoCall?: (userId: string, userName: string) => void;
 }
 
-export const ChatDialog: React.FC<ChatDialogProps> = ({ user: chatUser, onClose }) => {
+export const ChatDialog: React.FC<ChatDialogProps> = ({ user: chatUser, onClose, onStartVideoCall }) => {
   const { user } = useAuth();
   const { sendMessage, socket } = useSocket();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -81,10 +83,26 @@ export const ChatDialog: React.FC<ChatDialogProps> = ({ user: chatUser, onClose 
 
   return (
     <div className="flex flex-col h-96 w-full">
-      <div className="flex items-center mb-2">
-  <img src={chatUser.avatar_url && chatUser.avatar_url.trim() !== '' ? chatUser.avatar_url : `https://ui-avatars.com/api/?name=${encodeURIComponent(chatUser.name || 'User')}&background=random`} alt={chatUser.name || 'User'} className="h-8 w-8 rounded-full mr-2" />
-        <div className="font-bold text-gray-900">{chatUser.name}</div>
-        <Button variant="outline" size="sm" className="ml-auto" onClick={onClose}>Close</Button>
+      <div className="flex items-center mb-2 justify-between">
+        <div className="flex items-center">
+          <img src={chatUser.avatar_url && chatUser.avatar_url.trim() !== '' ? chatUser.avatar_url : `https://ui-avatars.com/api/?name=${encodeURIComponent(chatUser.name || 'User')}&background=random`} alt={chatUser.name || 'User'} className="h-8 w-8 rounded-full mr-2" />
+          <div className="font-bold text-gray-900">{chatUser.name}</div>
+        </div>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => {
+              if (onStartVideoCall && chatUser._id) {
+                onStartVideoCall(chatUser._id, chatUser.name);
+                onClose();
+              }
+            }}
+            className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-all duration-200"
+            title="Start video call"
+          >
+            <Video className="h-5 w-5" />
+          </button>
+          <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto bg-gray-50 rounded p-2 mb-2">
         {messages.map((msg, idx) => (

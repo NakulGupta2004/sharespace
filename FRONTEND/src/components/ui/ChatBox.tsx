@@ -11,7 +11,7 @@ interface User {
   avatar_url?: string;
 }
 
-export const ChatBox: React.FC<{ onClose: () => void; onSelectUser?: (user: User) => void }> = ({ onClose, onSelectUser }) => {
+export const ChatBox: React.FC<{ onClose: () => void; onSelectUser?: (user: User) => void; onStartVideoCall?: (userId: string, userName: string) => void }> = ({ onClose, onSelectUser, onStartVideoCall }) => {
   const { user } = useAuth();
   const [contacts, setContacts] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -77,7 +77,7 @@ export const ChatBox: React.FC<{ onClose: () => void; onSelectUser?: (user: User
           <div className="w-2/3 flex flex-col items-center justify-center">
             {selectedUser ? (
               <div className="w-full h-full flex flex-col justify-center items-center">
-                <ChatDialog user={selectedUser} onClose={() => setSelectedUser(null)} />
+                <ChatDialog user={selectedUser} onClose={() => setSelectedUser(null)} onStartVideoCall={onStartVideoCall} />
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-gray-400">

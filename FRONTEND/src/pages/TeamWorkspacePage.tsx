@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
+import { VideoCall } from '../components/ui/VideoCall';
+import { PersonalVideoCall } from '../components/ui/PersonalVideoCall';
 import {
   Users,
   Plus,
@@ -23,7 +25,8 @@ import {
   Clock,
   Edit2,
   Trash2,
-  RotateCcw
+  RotateCcw,
+  Video
 } from 'lucide-react';
 
 // TypeScript interfaces
@@ -46,6 +49,7 @@ interface Resource {
   quantity: number;
   status: string;
   owner?: { _id: string; name: string };
+  image_url?: string;
 }
 
 interface Task {
@@ -129,6 +133,9 @@ export default function TeamWorkspacePage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarType, setSidebarType] = useState<'teams' | 'mytasks' | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showTeamVideoCall, setShowTeamVideoCall] = useState(false);
+  const [showPersonalVideoCall, setShowPersonalVideoCall] = useState(false);
+  const [personalCallRecipient, setPersonalCallRecipient] = useState<{ id: string; name: string } | null>(null);
 
   // Close emoji picker when clicking outside
   useEffect(() => {
@@ -1734,6 +1741,15 @@ export default function TeamWorkspacePage() {
                             
                             {/* Chat Actions */}
                             <div className="flex items-center space-x-2">
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => setShowTeamVideoCall(true)}
+                                className="p-2 text-green-600 hover:bg-green-100 dark:text-green-400 dark:hover:bg-green-900/30 rounded-xl transition-all duration-200"
+                                title="Start Team Video Call"
+                              >
+                                <Video className="h-5 w-5" />
+                              </motion.button>
                               {selectedTeam?.admins?.some(admin => admin._id === user?.id) && (
                                 <motion.button
                                   whileHover={{ scale: 1.05 }}
@@ -2684,6 +2700,32 @@ export default function TeamWorkspacePage() {
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Team Video Call Component */}
+      <AnimatePresence>
+        {showTeamVideoCall && selectedTeam && (
+          <VideoCall
+            teamId={selectedTeam._id}
+            teamName={selectedTeam.name}
+            onClose={() => setShowTeamVideoCall(false)}
+            isTeamCall={true}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Personal Video Call Component */}
+      <AnimatePresence>
+        {showPersonalVideoCall && personalCallRecipient && (
+          <PersonalVideoCall
+            recipientId={personalCallRecipient.id}
+            recipientName={personalCallRecipient.name}
+            onClose={() => {
+              setShowPersonalVideoCall(false);
+              setPersonalCallRecipient(null);
+            }}
+          />
         )}
       </AnimatePresence>
     </div>

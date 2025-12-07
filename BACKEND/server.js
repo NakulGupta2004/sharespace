@@ -260,8 +260,188 @@ io.on('connection', (socket) => {
     socket.to(`team_${data.teamId}`).emit('task_updated', data);
   });
 
+  // ===== VIDEO CALL EVENTS =====
+
+  // Team Video Call Events
+  socket.on('videoCall:join', (data) => {
+    const { teamId, userId, userName, callId, isTeamCall } = data;
+    console.log(`User ${userId} (${userName}) joining video call in team ${teamId}`);
+    
+    // Store call info
+    socket.callId = callId;
+    socket.teamId = teamId;
+    
+    // Notify other participants in the team that someone joined
+    socket.to(`team_${teamId}`).emit('videoCall:user-joined', {
+      userId,
+      userName,
+      callId
+    });
+  });
+
+  socket.on('videoCall:offer', (data) => {
+    const { to, offer, from, fromName } = data;
+    console.log(`Video call offer from ${from} to ${to}`);
+    
+    // Send offer to specific user
+    io.to(`user_${to}`).emit('videoCall:offer', {
+      offer,
+      from,
+      fromName,
+      callId: socket.callId
+    });
+  });
+
+  socket.on('videoCall:answer', (data) => {
+    const { to, answer, from } = data;
+    console.log(`Video call answer from ${from} to ${to}`);
+    
+    // Send answer to specific user
+    io.to(`user_${to}`).emit('videoCall:answer', {
+      answer,
+      from
+    });
+  });
+
+  socket.on('videoCall:ice-candidate', (data) => {
+    const { to, candidate, from } = data;
+    
+    // Forward ICE candidate to specific user
+    io.to(`user_${to}`).emit('videoCall:ice-candidate', {
+      candidate,
+      from
+    });
+  });
+
+  socket.on('videoCall:toggle-audio', (data) => {
+    const { teamId, userId, enabled } = data;
+    
+    // Notify team members about audio status change
+    socket.to(`team_${teamId}`).emit('videoCall:audio-toggled', {
+      userId,
+      enabled
+    });
+  });
+
+  socket.on('videoCall:toggle-video', (data) => {
+    const { teamId, userId, enabled } = data;
+    
+    // Notify team members about video status change
+    socket.to(`team_${teamId}`).emit('videoCall:video-toggled', {
+      userId,
+      enabled
+    });
+  });
+
+  socket.on('videoCall:leave', (data) => {
+    const { teamId, userId } = data;
+    console.log(`User ${userId} leaving video call in team ${teamId}`);
+    
+    // Notify other participants
+    socket.to(`team_${teamId}`).emit('videoCall:user-left', {
+      userId
+    });
+  });
+
+  // ===== PERSONAL VIDEO CALL EVENTS =====
+
+  socket.on('personalCall:initiate', (data) => {
+    const { to, offer, from, fromName, callId } = data;
+    console.log(`Personal video call initiated from ${from} to ${to}`);
+    
+    // Store call info on socket
+    socket.personalCallId = callId;
+    socket.personalCallWith = to;
+    
+    // Send call initiation to recipient
+    io.to(`user_${to}`).emit('personalCall:incoming', {
+      offer,
+      from,
+      fromName,
+      callId
+    });
+  });
+
+  socket.on('personalCall:offer', (data) => {
+    const { to, offer, from } = data;
+    
+    // Send offer to specific user
+    io.to(`user_${to}`).emit('personalCall:offer', {
+      offer,
+      from
+    });
+  });
+
+  socket.on('personalCall:answer', (data) => {
+    const { to, answer, from } = data;
+    console.log(`Personal call answer from ${from} to ${to}`);
+    
+    // Send answer to specific user
+    io.to(`user_${to}`).emit('personalCall:answer', {
+      answer,
+      from
+    });
+  });
+
+  socket.on('personalCall:accept', (data) => {
+    const { to, from, callId } = data;
+    console.log(`Personal call accepted by ${from}`);
+    
+    // Notify caller that call was accepted
+    io.to(`user_${to}`).emit('personalCall:accepted', {
+      from,
+      callId
+    });
+  });
+
+  socket.on('personalCall:reject', (data) => {
+    const { to, from, callId } = data;
+    console.log(`Personal call rejected by ${from}`);
+    
+    // Notify caller that call was rejected
+    io.to(`user_${to}`).emit('personalCall:rejected', {
+      from,
+      callId
+    });
+  });
+
+  socket.on('personalCall:ice-candidate', (data) => {
+    const { to, candidate, from } = data;
+    
+    // Forward ICE candidate to specific user
+    io.to(`user_${to}`).emit('personalCall:ice-candidate', {
+      candidate,
+      from
+    });
+  });
+
+  socket.on('personalCall:end', (data) => {
+    const { to, from, callId } = data;
+    console.log(`Personal call ended from ${from} to ${to}`);
+    
+    // Notify recipient that call has ended
+    io.to(`user_${to}`).emit('personalCall:ended', {
+      from,
+      callId
+    });
+  });
+
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.userId}`);
+    
+    // Notify team members if user was in a video call
+    if (socket.teamId) {
+      socket.to(`team_${socket.teamId}`).emit('videoCall:user-left', {
+        userId: socket.userId
+      });
+    }
+    
+    // Notify personal call recipient if in a call
+    if (socket.personalCallWith) {
+      io.to(`user_${socket.personalCallWith}`).emit('personalCall:ended', {
+        from: socket.userId
+      });
+    }
   });
 });
 
