@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
@@ -16,9 +16,26 @@ import TeamPage from './pages/TeamPage';
 import ProfilePage from './pages/ProfilePage';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { SocketProvider } from './context/SocketContext';
+
+// Component to redirect logged-in users away from auth pages
+function ProtectedAuthRoute({ element }: { element: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  }
+  
+  // If user is logged in, redirect to dashboard
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  
+  // Otherwise show the auth page
+  return element;
+}
 
 function App() {
   const [workspace, setWorkspace] = useState<'marketplace' | 'team'>('marketplace');
@@ -38,8 +55,8 @@ function App() {
                 {workspace === 'marketplace' ? (
                   <Routes>
                     <Route path="/" element={<HomePage />} />
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="/register" element={<RegisterPage />} />
+                    <Route path="/login" element={<ProtectedAuthRoute element={<LoginPage />} />} />
+                    <Route path="/register" element={<ProtectedAuthRoute element={<RegisterPage />} />} />
                     <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                     <Route path="/reset-password" element={<ResetPasswordPage />} />
                     <Route path="/dashboard" element={<DashboardPage />} />
