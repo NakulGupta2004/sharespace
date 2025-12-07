@@ -442,10 +442,22 @@ export default function TeamWorkspacePage() {
       // If the invite is for the current team, automatically open the video call
       if (data.teamId === selectedTeam?._id) {
         setShowTeamVideoCall(true);
-        toast.success(`${data.initiatorName} is starting a team video call!`);
+        toast.success(`${data.initiatorName} is starting a team video call! 📹`, {
+          duration: 4000
+        });
       } else {
-        // If it's for a different team, just show a notification
-        toast.success(`${data.initiatorName} is starting a video call in ${data.teamName}`);
+        // If it's for a different team, switch to that team and open the video call
+        const inviteTeam = teams.find(t => t._id === data.teamId);
+        if (inviteTeam) {
+          setSelectedTeam(inviteTeam);
+          // Use setTimeout to ensure state is updated before opening video call
+          setTimeout(() => {
+            setShowTeamVideoCall(true);
+          }, 100);
+          toast.success(`${data.initiatorName} is starting a video call in ${data.teamName}! 📹`, {
+            duration: 4000
+          });
+        }
       }
     };
 
