@@ -35,10 +35,21 @@ export const PersonalVideoCall: React.FC<PersonalVideoCallProps> = ({
   useEffect(() => {
     const initializeCall = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: { echoCancellation: true, noiseSuppression: true }
-        });
+        let stream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+          });
+        } catch (err) {
+          console.log('High-res constraints failed, trying basic constraints...');
+          // Fallback to basic constraints for mobile/older devices
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true
+          });
+        }
+
         setLocalStream(stream);
 
         if (localVideoRef.current) {
@@ -110,8 +121,8 @@ export const PersonalVideoCall: React.FC<PersonalVideoCallProps> = ({
           socket?.off('personalCall:ended', handleCallEnded);
         };
       } catch (err) {
-        setError('Unable to access camera/microphone. Please check permissions.');
         console.error('Error accessing media devices:', err);
+        setError(`Unable to access camera/microphone: ${err instanceof DOMException ? err.message : 'Please check permissions.'}`);
       }
     };
 
