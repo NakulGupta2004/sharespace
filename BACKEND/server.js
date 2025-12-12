@@ -334,6 +334,32 @@ io.on('connection', (socket) => {
     console.log(`📢 Broadcasted user-joined event to all participants`);
   });
 
+  // STEP 2B: Non-initiator announces they're ready to connect
+  // This allows existing participants to create peer connections with them
+  socket.on('videoCall:participant-ready', (data) => {
+    const { teamId, userId, userName, callId } = data;
+    console.log(`\n👤 PARTICIPANT READY: ${userName} (${userId}) is ready to connect in team ${teamId}`);
+    
+    // Store call info
+    socket.videoCallTeamId = teamId;
+    socket.videoCallId = callId;
+    socket.userId = userId;
+    socket.userName = userName;
+    
+    // Join the video call room
+    socket.join(`team_video_${teamId}`);
+    console.log(`✅ Participant joined room: team_video_${teamId}`);
+    
+    // Broadcast to all in the room that this participant is ready
+    // Existing participants will see this and create peer connections
+    io.to(`team_video_${teamId}`).emit('videoCall:participant-ready', {
+      userId,
+      userName
+    });
+    
+    console.log(`📢 Broadcasted participant-ready event to all in room`);
+  });
+
   // STEP 3: Member declines invite - just send notification, DON'T add to call
   socket.on('videoCall:decline', (data) => {
     const { teamId, userId, userName, initiatorId } = data;

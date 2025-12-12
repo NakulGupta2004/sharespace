@@ -78,16 +78,30 @@ export const VideoCallNew: React.FC<VideoCallProps> = ({
           localVideoRef.current.srcObject = stream;
         }
 
-        // Only the initiator sends the join signal
-        if (isInitiatorRef.current && !callStartedRef.current) {
+        // CRITICAL: Both initiator AND non-initiator need to announce they're ready
+        // This allows others to establish peer connections with them
+        if (!callStartedRef.current) {
           callStartedRef.current = true;
-          socket?.emit('videoCall:start', {
-            teamId,
-            userId: user?.id,
-            userName: user?.name,
-            callId: callIdRef.current,
-            isTeamCall
-          });
+          
+          if (isInitiatorRef.current) {
+            // Initiator starts the call
+            socket?.emit('videoCall:start', {
+              teamId,
+              userId: user?.id,
+              userName: user?.name,
+              callId: callIdRef.current,
+              isTeamCall
+            });
+          } else {
+            // Non-initiator announces they're joining
+            // This tells the initiator and others to create peer connections
+            socket?.emit('videoCall:participant-ready', {
+              teamId,
+              userId: user?.id,
+              userName: user?.name,
+              callId: callIdRef.current
+            });
+          }
         }
       } catch (err) {
         console.error('Media error:', err);
@@ -312,10 +326,34 @@ export const VideoCallNew: React.FC<VideoCallProps> = ({
     }
   };
 
+  // Handle when a participant announces they're ready to connect
+  const handleParticipantReady = (data: { userId: string; userName: string }) => {
+    if (data.userId === user?.id) return;
+
+    // Add to participants list if not already there
+    setParticipants(prev => {
+      if (prev.some(p => p.userId === data.userId)) return prev;
+      return [...prev, {
+        userId: data.userId,
+        userName: data.userName,
+        videoEnabled: true,
+        audioEnabled: true
+      }];
+    });
+
+    // Create peer connection and send offer to this participant
+    if (localStream) {
+      setTimeout(() => {
+        createAndSendOffer(data.userId);
+      }, 100);
+    }
+  };
+
   // Register socket listeners
   useEffect(() => {
     socket?.on('videoCall:user-joined', handleUserJoined);
     socket?.on('videoCall:user-left', handleUserLeft);
+    socket?.on('videoCall:participant-ready', handleParticipantReady);
     socket?.on('videoCall:offer', handleOffer);
     socket?.on('videoCall:answer', handleAnswer);
     socket?.on('videoCall:ice-candidate', handleIceCandidate);
@@ -326,6 +364,7 @@ export const VideoCallNew: React.FC<VideoCallProps> = ({
     return () => {
       socket?.off('videoCall:user-joined', handleUserJoined);
       socket?.off('videoCall:user-left', handleUserLeft);
+      socket?.off('videoCall:participant-ready', handleParticipantReady);
       socket?.off('videoCall:offer', handleOffer);
       socket?.off('videoCall:answer', handleAnswer);
       socket?.off('videoCall:ice-candidate', handleIceCandidate);
@@ -333,7 +372,7 @@ export const VideoCallNew: React.FC<VideoCallProps> = ({
       socket?.off('videoCall:video-toggled', handleVideoToggled);
       socket?.off('videoCall:chat', handleChatMessage);
     };
-  }, [socket]);
+  }, [socket, handleUserJoined, handleUserLeft, handleParticipantReady, handleOffer, handleAnswer, handleIceCandidate, handleAudioToggled, handleVideoToggled, handleChatMessage]);
 
   // Auto-scroll chat
   useEffect(() => {
