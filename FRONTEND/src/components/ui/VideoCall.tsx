@@ -10,10 +10,9 @@ interface VideoCallProps {
   onClose: () => void;
 }
 
-interface Participant {
+interface RemoteUser {
   userId: string;
   userName: string;
-  stream?: MediaStream;
   videoEnabled: boolean;
   audioEnabled: boolean;
 }
@@ -22,19 +21,14 @@ interface ChatMessage {
   userId: string;
   userName: string;
   message: string;
-  timestamp: number;
 }
 
-export const VideoCall: React.FC<VideoCallProps> = ({
-  teamId,
-  teamName,
-  onClose
-}) => {
+export const VideoCall: React.FC<VideoCallProps> = ({ teamId, teamName, onClose }) => {
   const { user } = useAuth();
   const { socket } = useSocket();
 
   // State
-  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [remoteUsers, setRemoteUsers] = useState<RemoteUser[]>([]);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [videoEnabled, setVideoEnabled] = useState(true);
@@ -43,416 +37,389 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
 
-  // Refs
+  // Refs for video elements and peer connections
   const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRefs = useRef<{ [key: string]: HTMLVideoElement | null }>({});
-  const peerConnectionsRef = useRef<{ [key: string]: RTCPeerConnection }>({});
-  const callIdRef = useRef(`${teamId}-${user?.id}-${Date.now()}`);
+  const videoRefs = useRef<{ [userId: string]: HTMLVideoElement | null }>({});
+  const peerConnections = useRef<{ [userId: string]: RTCPeerConnection }>({});
+  const localStreamRef = useRef<MediaStream | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Initialize call and get media stream
-  useEffect(() => {
-    const initializeCall = async () => {
-      try {
-        // Get media stream
-        let stream;
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-          });
-        } catch {
-          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        }
+  // Helper to create peer connection
+  const createPeerConnection = (remoteUserId: string) => {
+    console.log(`[${user?.id}] Creating peer connection with ${remoteUserId}`);
 
-        setLocalStream(stream);
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
-
-        // Join call room
-        socket?.emit('call:join', {
-          teamId,
-          userId: user?.id,
-          userName: user?.name,
-          callId: callIdRef.current
-        });
-
-        // Send invite to team members
-        socket?.emit('call:invite', {
-          teamId,
-          from: user?.id,
-          fromName: user?.name,
-          callId: callIdRef.current
-        });
-      } catch (err) {
-        console.error('Media error:', err);
-        setError(`Unable to access camera/microphone: ${err instanceof DOMException ? err.message : 'Please check permissions.'}`);
-      }
-    };
-
-    initializeCall();
-
-    return () => {
-      localStream?.getTracks().forEach(track => {
-        track.enabled = false;
-        track.stop();
-      });
-    };
-  }, []);
-
-  // Create peer connection with proper setup
-  const createPeerConnection = (remoteUserId: string): RTCPeerConnection => {
-    console.log(`Creating peer connection with ${remoteUserId}`);
-    
-    const peerConnection = new RTCPeerConnection({
+    const pc = new RTCPeerConnection({
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' }
-      ]
+        { urls: 'stun:stun3.l.google.com:19302' },
+      ],
     });
 
-    // Add local stream tracks BEFORE setting up handlers
-    if (localStream) {
-      console.log(`Adding local stream tracks to peer connection with ${remoteUserId}`);
-      localStream.getTracks().forEach(track => {
-        peerConnection.addTrack(track, localStream);
+    // Add all local tracks
+    if (localStreamRef.current) {
+      console.log(`[${user?.id}] Adding local tracks to connection with ${remoteUserId}`);
+      localStreamRef.current.getTracks().forEach(track => {
+        pc.addTrack(track, localStreamRef.current!);
       });
     }
 
-    // Handle remote stream
-    peerConnection.ontrack = (event) => {
-      console.log(`🎥 Received remote stream from ${remoteUserId}`, event.streams);
-      
+    // Handle incoming remote stream
+    pc.ontrack = (event) => {
+      console.log(`[${user?.id}] 🎥 Received remote track from ${remoteUserId}`, event.track.kind);
+
       if (event.streams && event.streams.length > 0) {
         const remoteStream = event.streams[0];
-        
-        // Update state
-        setParticipants(prev =>
-          prev.map(p =>
-            p.userId === remoteUserId ? { ...p, stream: remoteStream } : p
-          )
-        );
+        const videoEl = videoRefs.current[remoteUserId];
 
-        // Set video element srcObject immediately
-        const videoEl = remoteVideoRefs.current[remoteUserId];
         if (videoEl) {
-          console.log(`Setting video srcObject for ${remoteUserId}`);
+          console.log(`[${user?.id}] Setting video element for ${remoteUserId}`);
           videoEl.srcObject = remoteStream;
-          videoEl.play().catch(err => console.error(`Error playing video for ${remoteUserId}:`, err));
+          videoEl.play().catch(e => console.error(`Error playing video for ${remoteUserId}:`, e));
         } else {
-          console.warn(`Video ref not found for ${remoteUserId}`);
+          console.warn(`[${user?.id}] Video element not found for ${remoteUserId}`);
         }
       }
     };
 
     // Handle ICE candidates
-    peerConnection.onicecandidate = (event) => {
+    pc.onicecandidate = (event) => {
       if (event.candidate) {
-        console.log(`📤 Sending ICE candidate to ${remoteUserId}`);
         socket?.emit('call:ice-candidate', {
           to: remoteUserId,
           candidate: event.candidate,
-          from: user?.id
+          from: user?.id,
         });
       }
     };
 
-    // Handle connection state changes
-    peerConnection.onconnectionstatechange = () => {
-      console.log(`🔗 Connection state with ${remoteUserId}:`, peerConnection.connectionState);
+    // Connection state logging
+    pc.onconnectionstatechange = () => {
+      console.log(`[${user?.id}] Connection state with ${remoteUserId}: ${pc.connectionState}`);
     };
 
-    peerConnection.oniceconnectionstatechange = () => {
-      console.log(`❄️ ICE connection state with ${remoteUserId}:`, peerConnection.iceConnectionState);
-    };
-
-    peerConnectionsRef.current[remoteUserId] = peerConnection;
-    return peerConnection;
+    peerConnections.current[remoteUserId] = pc;
+    return pc;
   };
 
   // Create and send offer
-  const createAndSendOffer = async (remoteUserId: string) => {
+  const sendOffer = async (remoteUserId: string) => {
     try {
-      console.log(`Creating offer for ${remoteUserId}`);
-      
-      // Ensure peer connection exists
-      let peerConnection = peerConnectionsRef.current[remoteUserId];
-      if (!peerConnection) {
-        peerConnection = createPeerConnection(remoteUserId);
+      console.log(`[${user?.id}] Creating offer for ${remoteUserId}`);
+
+      let pc = peerConnections.current[remoteUserId];
+      if (!pc) {
+        pc = createPeerConnection(remoteUserId);
       }
 
-      const offer = await peerConnection.createOffer({
+      const offer = await pc.createOffer({
         offerToReceiveAudio: true,
-        offerToReceiveVideo: true
+        offerToReceiveVideo: true,
       });
 
-      console.log(`Setting local description (offer) for ${remoteUserId}`);
-      await peerConnection.setLocalDescription(offer);
+      await pc.setLocalDescription(offer);
 
-      console.log(`Sending offer to ${remoteUserId}`);
       socket?.emit('call:offer', {
         to: remoteUserId,
-        offer: offer,
+        offer,
         from: user?.id,
-        fromName: user?.name
+        fromName: user?.name,
       });
+
+      console.log(`[${user?.id}] Offer sent to ${remoteUserId}`);
     } catch (err) {
-      console.error('Error creating offer:', err);
+      console.error(`Error creating offer to ${remoteUserId}:`, err);
     }
   };
 
-  // Setup socket listeners
+  // Initialize local media and join call
+  useEffect(() => {
+    let isMounted = true;
+
+    const setup = async () => {
+      try {
+        console.log(`[${user?.id}] Initializing call...`);
+
+        // Get local media
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: { echoCancellation: true, noiseSuppression: true },
+          });
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true,
+          });
+        }
+
+        if (!isMounted) {
+          stream.getTracks().forEach(t => t.stop());
+          return;
+        }
+
+        localStreamRef.current = stream;
+        setLocalStream(stream);
+
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+        }
+
+        // Join the call
+        socket?.emit('call:join', {
+          teamId,
+          userId: user?.id,
+          userName: user?.name,
+        });
+
+        // Send invite to all team members
+        socket?.emit('call:invite', {
+          teamId,
+          from: user?.id,
+          fromName: user?.name,
+        });
+
+        console.log(`[${user?.id}] Call initialized`);
+      } catch (err) {
+        console.error('Setup error:', err);
+        if (isMounted) {
+          setError(
+            `Failed to access camera/mic: ${
+              err instanceof DOMException ? err.message : 'Unknown error'
+            }`
+          );
+        }
+      }
+    };
+
+    setup();
+
+    return () => {
+      isMounted = false;
+      localStream?.getTracks().forEach(t => {
+        t.stop();
+      });
+    };
+  }, []);
+
+  // Socket event handlers
   useEffect(() => {
     if (!socket) return;
 
-    console.log('🔌 Setting up socket listeners');
+    console.log(`[${user?.id}] Setting up socket listeners`);
 
-    const onUserJoined = (data: { userId: string; userName: string }) => {
+    // User joined - we should create an offer to them
+    socket.on('call:user-joined', (data: { userId: string; userName: string }) => {
+      console.log(`[${user?.id}] User joined: ${data.userName} (${data.userId})`);
+
       if (data.userId === user?.id) return;
-      console.log(`👤 User joined: ${data.userName}`);
-      
-      setParticipants(prev => {
-        if (prev.some(p => p.userId === data.userId)) return prev;
+
+      // Add to remote users list
+      setRemoteUsers(prev => {
+        if (prev.some(u => u.userId === data.userId)) return prev;
         return [...prev, {
           userId: data.userId,
           userName: data.userName,
           videoEnabled: true,
-          audioEnabled: true
+          audioEnabled: true,
         }];
       });
 
-      if (localStream) {
-        createAndSendOffer(data.userId);
+      // Create offer for this new user
+      if (localStreamRef.current) {
+        setTimeout(() => sendOffer(data.userId), 500);
       }
-    };
+    });
 
-    const onOffer = async (data: { offer: RTCSessionDescriptionInit; from: string; fromName: string }) => {
+    // Receive offer from another user
+    socket.on('call:offer', async (data: { offer: RTCSessionDescriptionInit; from: string; fromName: string }) => {
       try {
-        console.log(`📩 Received offer from ${data.fromName}`);
+        console.log(`[${user?.id}] Received offer from ${data.fromName}`);
 
-        let peerConnection = peerConnectionsRef.current[data.from];
-        if (!peerConnection) {
-          peerConnection = createPeerConnection(data.from);
+        let pc = peerConnections.current[data.from];
+        if (!pc) {
+          pc = createPeerConnection(data.from);
         }
 
-        if (peerConnection.remoteDescription) {
-          console.warn(`Already have remote description for ${data.from}`);
-          return;
+        if (!pc.remoteDescription) {
+          await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+
+          const answer = await pc.createAnswer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true,
+          });
+
+          await pc.setLocalDescription(answer);
+
+          socket.emit('call:answer', {
+            to: data.from,
+            answer,
+            from: user?.id,
+          });
+
+          console.log(`[${user?.id}] Answer sent to ${data.from}`);
         }
-
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-        const answer = await peerConnection.createAnswer({
-          offerToReceiveAudio: true,
-          offerToReceiveVideo: true
-        });
-
-        await peerConnection.setLocalDescription(answer);
-
-        socket?.emit('call:answer', {
-          to: data.from,
-          answer: answer,
-          from: user?.id
-        });
       } catch (err) {
         console.error('Error handling offer:', err);
       }
-    };
+    });
 
-    const onAnswer = async (data: { answer: RTCSessionDescriptionInit; from: string }) => {
+    // Receive answer
+    socket.on('call:answer', async (data: { answer: RTCSessionDescriptionInit; from: string }) => {
       try {
-        console.log(`📩 Received answer from ${data.from}`);
-        const peerConnection = peerConnectionsRef.current[data.from];
-        if (!peerConnection) {
-          console.warn(`No peer connection for answer from ${data.from}`);
-          return;
-        }
+        console.log(`[${user?.id}] Received answer from ${data.from}`);
 
-        if (peerConnection.remoteDescription) {
-          console.warn(`Already have remote description for ${data.from}`);
-          return;
+        const pc = peerConnections.current[data.from];
+        if (pc && !pc.remoteDescription) {
+          await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+          console.log(`[${user?.id}] Answer applied from ${data.from}`);
         }
-
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
       } catch (err) {
         console.error('Error handling answer:', err);
       }
-    };
+    });
 
-    const onIceCandidate = async (data: { candidate: RTCIceCandidate; from: string }) => {
+    // Receive ICE candidate
+    socket.on('call:ice-candidate', async (data: { candidate: RTCIceCandidate; from: string }) => {
       try {
-        const peerConnection = peerConnectionsRef.current[data.from];
-        if (!peerConnection) return;
-
-        if (data.candidate) {
-          await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+        const pc = peerConnections.current[data.from];
+        if (pc && data.candidate) {
+          await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
         }
       } catch (err) {
         console.error('Error adding ICE candidate:', err);
       }
-    };
+    });
 
-    const onUserLeft = (data: { userId: string }) => {
-      console.log(`👋 User left: ${data.userId}`);
-      setParticipants(prev => prev.filter(p => p.userId !== data.userId));
+    // User left
+    socket.on('call:user-left', (data: { userId: string }) => {
+      console.log(`[${user?.id}] User left: ${data.userId}`);
 
-      if (peerConnectionsRef.current[data.userId]) {
-        peerConnectionsRef.current[data.userId].close();
-        delete peerConnectionsRef.current[data.userId];
+      setRemoteUsers(prev => prev.filter(u => u.userId !== data.userId));
+
+      const pc = peerConnections.current[data.userId];
+      if (pc) {
+        pc.close();
+        delete peerConnections.current[data.userId];
       }
 
-      if (remoteVideoRefs.current[data.userId]) {
-        remoteVideoRefs.current[data.userId] = null;
+      if (videoRefs.current[data.userId]) {
+        videoRefs.current[data.userId] = null;
       }
-    };
+    });
 
-    const onAudioToggled = (data: { userId: string; enabled: boolean }) => {
-      setParticipants(prev =>
-        prev.map(p => p.userId === data.userId ? { ...p, audioEnabled: data.enabled } : p)
+    // Audio toggled
+    socket.on('call:audio-toggled', (data: { userId: string; enabled: boolean }) => {
+      setRemoteUsers(prev =>
+        prev.map(u => (u.userId === data.userId ? { ...u, audioEnabled: data.enabled } : u))
       );
-    };
+    });
 
-    const onVideoToggled = (data: { userId: string; enabled: boolean }) => {
-      setParticipants(prev =>
-        prev.map(p => p.userId === data.userId ? { ...p, videoEnabled: data.enabled } : p)
+    // Video toggled
+    socket.on('call:video-toggled', (data: { userId: string; enabled: boolean }) => {
+      setRemoteUsers(prev =>
+        prev.map(u => (u.userId === data.userId ? { ...u, videoEnabled: data.enabled } : u))
       );
-    };
+    });
 
-    const onChatMessage = (data: { userId: string; userName: string; message: string }) => {
-      setChatMessages(prev => [...prev, {
-        userId: data.userId,
-        userName: data.userName,
-        message: data.message,
-        timestamp: Date.now()
-      }]);
-    };
-
-    socket.on('call:user-joined', onUserJoined);
-    socket.on('call:offer', onOffer);
-    socket.on('call:answer', onAnswer);
-    socket.on('call:ice-candidate', onIceCandidate);
-    socket.on('call:user-left', onUserLeft);
-    socket.on('call:audio-toggled', onAudioToggled);
-    socket.on('call:video-toggled', onVideoToggled);
-    socket.on('call:chat', onChatMessage);
+    // Chat message
+    socket.on('call:chat', (data: { userId: string; userName: string; message: string }) => {
+      setChatMessages(prev => [...prev, data]);
+    });
 
     return () => {
-      socket.off('call:user-joined', onUserJoined);
-      socket.off('call:offer', onOffer);
-      socket.off('call:answer', onAnswer);
-      socket.off('call:ice-candidate', onIceCandidate);
-      socket.off('call:user-left', onUserLeft);
-      socket.off('call:audio-toggled', onAudioToggled);
-      socket.off('call:video-toggled', onVideoToggled);
-      socket.off('call:chat', onChatMessage);
+      socket.off('call:user-joined');
+      socket.off('call:offer');
+      socket.off('call:answer');
+      socket.off('call:ice-candidate');
+      socket.off('call:user-left');
+      socket.off('call:audio-toggled');
+      socket.off('call:video-toggled');
+      socket.off('call:chat');
     };
-  }, [socket, user?.id, localStream]);
+  }, [socket, user?.id]);
 
   // Auto-scroll chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
-  // Toggle audio
-  const toggleAudio = () => {
-    if (localStream) {
-      localStream.getAudioTracks().forEach(track => {
-        track.enabled = !audioEnabled;
-      });
-      setAudioEnabled(!audioEnabled);
+  const handleToggleAudio = () => {
+    if (!localStreamRef.current) return;
 
-      socket?.emit('call:audio-toggled', {
-        teamId,
-        userId: user?.id,
-        enabled: !audioEnabled
-      });
-    }
+    localStreamRef.current.getAudioTracks().forEach(track => {
+      track.enabled = !audioEnabled;
+    });
+
+    setAudioEnabled(!audioEnabled);
+
+    socket?.emit('call:audio-toggled', {
+      teamId,
+      userId: user?.id,
+      enabled: !audioEnabled,
+    });
   };
 
-  // Toggle video
-  const toggleVideo = () => {
-    if (localStream) {
-      localStream.getVideoTracks().forEach(track => {
-        track.enabled = !videoEnabled;
-      });
-      setVideoEnabled(!videoEnabled);
+  const handleToggleVideo = () => {
+    if (!localStreamRef.current) return;
 
-      socket?.emit('call:video-toggled', {
-        teamId,
-        userId: user?.id,
-        enabled: !videoEnabled
-      });
-    }
+    localStreamRef.current.getVideoTracks().forEach(track => {
+      track.enabled = !videoEnabled;
+    });
+
+    setVideoEnabled(!videoEnabled);
+
+    socket?.emit('call:video-toggled', {
+      teamId,
+      userId: user?.id,
+      enabled: !videoEnabled,
+    });
   };
 
-  // Send chat message
-  const sendChatMessage = () => {
-    if (chatInput.trim()) {
-      socket?.emit('call:chat', {
-        teamId,
-        userId: user?.id,
-        userName: user?.name,
-        message: chatInput
-      });
+  const handleSendChat = () => {
+    if (!chatInput.trim()) return;
 
-      setChatMessages(prev => [
-        ...prev,
-        {
-          userId: user?.id || '',
-          userName: user?.name || 'You',
-          message: chatInput,
-          timestamp: Date.now()
-        }
-      ]);
+    socket?.emit('call:chat', {
+      teamId,
+      userId: user?.id,
+      userName: user?.name,
+      message: chatInput,
+    });
 
-      setChatInput('');
-    }
+    setChatMessages(prev => [
+      ...prev,
+      {
+        userId: user?.id || '',
+        userName: user?.name || 'You',
+        message: chatInput,
+      },
+    ]);
+
+    setChatInput('');
   };
 
-  // End call
-  const endCall = () => {
+  const handleEndCall = () => {
     // Stop all tracks
-    localStream?.getTracks().forEach(track => {
-      track.enabled = false;
+    localStreamRef.current?.getTracks().forEach(track => {
       track.stop();
     });
 
     // Close all peer connections
-    Object.values(peerConnectionsRef.current).forEach(pc => {
-      if (pc) {
-        pc.getSenders().forEach(sender => {
-          if (sender.track) {
-            sender.track.enabled = false;
-            sender.track.stop();
-          }
-        });
-        pc.getReceivers().forEach(receiver => {
-          if (receiver.track) {
-            receiver.track.enabled = false;
-            receiver.track.stop();
-          }
-        });
-        pc.close();
-      }
+    Object.values(peerConnections.current).forEach(pc => {
+      pc.close();
     });
 
-    peerConnectionsRef.current = {};
-    remoteVideoRefs.current = {};
+    peerConnections.current = {};
+    videoRefs.current = {};
 
-    // Clear refs
-    if (localVideoRef.current) {
-      localVideoRef.current.srcObject = null;
-    }
-
-    // Notify others
+    // Notify server
     socket?.emit('call:leave', {
       teamId,
-      userId: user?.id
+      userId: user?.id,
     });
 
-    // Close the call
     onClose();
   };
 
@@ -460,22 +427,20 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     return (
       <AnimatePresence>
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.9 }}
-          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
         >
-          <motion.div className="bg-gray-900 rounded-2xl p-8 max-w-md w-full border border-gray-700 shadow-2xl">
-            <h2 className="text-xl font-bold text-white mb-4">Camera/Mic Error</h2>
+          <motion.div className="bg-gray-900 p-8 rounded-lg border border-red-600 max-w-md">
+            <h2 className="text-white font-bold text-lg mb-4">Error</h2>
             <p className="text-gray-300 mb-6">{error}</p>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+            <button
               onClick={onClose}
-              className="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium transition-colors"
+              className="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg"
             >
               Close
-            </motion.button>
+            </button>
           </motion.div>
         </motion.div>
       </AnimatePresence>
@@ -491,33 +456,28 @@ export const VideoCall: React.FC<VideoCallProps> = ({
         className="fixed inset-0 bg-gray-950 z-50 flex flex-col"
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-gray-900 to-gray-800 p-4 flex items-center justify-between border-b border-gray-700 shadow-lg">
+        <div className="bg-gradient-to-r from-gray-900 to-gray-800 p-4 border-b border-gray-700 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-white">{teamName} - Video Call</h2>
-            <p className="text-sm text-gray-400">
-              {participants.length + 1} participant{participants.length + 1 !== 1 ? 's' : ''}
-            </p>
+            <p className="text-sm text-gray-400">{remoteUsers.length + 1} participants</p>
           </div>
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
+          <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-700 rounded-lg text-white transition-colors"
           >
-            <X className="h-6 w-6 text-white" />
-          </motion.button>
+            <X className="h-6 w-6" />
+          </button>
         </div>
 
-        {/* Main Content */}
+        {/* Main Video Grid */}
         <div className="flex-1 flex overflow-hidden">
-          {/* Video Grid */}
-          <div className="flex-1 flex flex-col p-4 gap-4 overflow-hidden">
+          <div className="flex-1 p-4 flex flex-col gap-4 overflow-hidden">
             <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-max overflow-auto">
               {/* Local Video */}
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-gray-800 rounded-2xl overflow-hidden relative aspect-video shadow-lg border border-gray-700 hover:border-cyan-400 transition-colors"
+                className="bg-gray-800 rounded-2xl overflow-hidden relative aspect-video shadow-lg border border-gray-700"
               >
                 <video
                   ref={localVideoRef}
@@ -526,53 +486,49 @@ export const VideoCall: React.FC<VideoCallProps> = ({
                   playsInline
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute bottom-3 left-3 bg-black/70 px-3 py-1.5 rounded-lg text-white text-sm font-medium backdrop-blur-md border border-white/10">
+                <div className="absolute bottom-3 left-3 bg-black/70 px-3 py-1.5 rounded-lg text-white text-sm font-medium">
                   👤 {user?.name} (You)
                 </div>
                 {!videoEnabled && (
-                  <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center backdrop-blur-sm">
-                    <div className="text-center">
-                      <VideoOff className="h-16 w-16 text-gray-500 mx-auto mb-2" />
-                      <p className="text-gray-400 text-sm">Camera off</p>
-                    </div>
+                  <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
+                    <VideoOff className="h-16 w-16 text-gray-500" />
                   </div>
                 )}
               </motion.div>
 
               {/* Remote Videos */}
-              {participants.map(participant => (
+              {remoteUsers.map(remoteUser => (
                 <motion.div
-                  key={participant.userId}
+                  key={remoteUser.userId}
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  className="bg-gray-800 rounded-2xl overflow-hidden relative aspect-video shadow-lg border border-gray-700 hover:border-cyan-400 transition-colors"
+                  className="bg-gray-800 rounded-2xl overflow-hidden relative aspect-video shadow-lg border border-gray-700"
                 >
                   <video
                     ref={el => {
-                      if (el) remoteVideoRefs.current[participant.userId] = el;
+                      if (el) videoRefs.current[remoteUser.userId] = el;
                     }}
                     autoPlay
                     playsInline
                     className="w-full h-full object-cover"
                   />
-                  <div className="absolute bottom-3 left-3 bg-black/70 px-3 py-1.5 rounded-lg text-white text-sm font-medium backdrop-blur-md border border-white/10">
-                    👤 {participant.userName}
+                  <div className="absolute bottom-3 left-3 bg-black/70 px-3 py-1.5 rounded-lg text-white text-sm font-medium">
+                    👤 {remoteUser.userName}
                   </div>
-                  <div className="absolute top-3 right-3 flex space-x-1">
-                    {!participant.audioEnabled && (
-                      <div className="bg-red-500/80 p-1.5 rounded-full backdrop-blur-md">
+                  <div className="absolute top-3 right-3 flex gap-2">
+                    {!remoteUser.audioEnabled && (
+                      <div className="bg-red-600 p-1.5 rounded-full">
                         <MicOff className="h-4 w-4 text-white" />
                       </div>
                     )}
-                    {!participant.videoEnabled && (
-                      <div className="bg-red-500/80 p-1.5 rounded-full backdrop-blur-md">
+                    {!remoteUser.videoEnabled && (
+                      <div className="bg-red-600 p-1.5 rounded-full">
                         <VideoOff className="h-4 w-4 text-white" />
                       </div>
                     )}
                   </div>
-                  {!participant.videoEnabled && (
-                    <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center backdrop-blur-sm">
+                  {!remoteUser.videoEnabled && (
+                    <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
                       <VideoOff className="h-16 w-16 text-gray-500" />
                     </div>
                   )}
@@ -588,9 +544,8 @@ export const VideoCall: React.FC<VideoCallProps> = ({
                 initial={{ opacity: 0, x: 400 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 400 }}
-                className="w-80 bg-gray-900 border-l border-gray-700 flex flex-col shadow-2xl"
+                className="w-80 bg-gray-900 border-l border-gray-700 flex flex-col"
               >
-                {/* Chat Header */}
                 <div className="bg-gradient-to-r from-gray-800 to-gray-700 p-4 border-b border-gray-700">
                   <h3 className="text-white font-semibold flex items-center">
                     <MessageCircle className="h-5 w-5 mr-2 text-blue-400" />
@@ -598,58 +553,49 @@ export const VideoCall: React.FC<VideoCallProps> = ({
                   </h3>
                 </div>
 
-                {/* Chat Messages */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-950">
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
                   {chatMessages.length === 0 ? (
-                    <div className="text-center text-gray-500 py-8">
-                      <MessageCircle className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                      <p>No messages yet. Start the conversation!</p>
-                    </div>
+                    <p className="text-center text-gray-500 text-sm">No messages yet</p>
                   ) : (
                     chatMessages.map((msg, idx) => (
-                      <motion.div
+                      <div
                         key={idx}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
                         className={`flex ${msg.userId === user?.id ? 'justify-end' : 'justify-start'}`}
                       >
                         <div
-                          className={`max-w-xs px-3 py-2 rounded-lg ${
+                          className={`max-w-xs px-3 py-2 rounded-lg text-sm ${
                             msg.userId === user?.id
-                              ? 'bg-blue-600 text-white rounded-br-none'
-                              : 'bg-gray-800 text-gray-100 rounded-bl-none'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-800 text-gray-100'
                           }`}
                         >
-                          <p className="text-xs font-semibold mb-1 opacity-75">
+                          <p className="font-semibold text-xs mb-1">
                             {msg.userId === user?.id ? 'You' : msg.userName}
                           </p>
-                          <p className="break-words text-sm">{msg.message}</p>
+                          <p>{msg.message}</p>
                         </div>
-                      </motion.div>
+                      </div>
                     ))
                   )}
                   <div ref={chatEndRef} />
                 </div>
 
-                {/* Chat Input */}
-                <div className="p-4 border-t border-gray-700 bg-gray-900">
+                <div className="p-4 border-t border-gray-700">
                   <div className="flex gap-2">
                     <input
                       type="text"
                       value={chatInput}
-                      onChange={(e) => setChatInput(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
-                      placeholder="Type a message..."
+                      onChange={e => setChatInput(e.target.value)}
+                      onKeyPress={e => e.key === 'Enter' && handleSendChat()}
+                      placeholder="Message..."
                       className="flex-1 bg-gray-800 text-white px-3 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-blue-500 text-sm"
                     />
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={sendChatMessage}
-                      className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg transition-colors"
+                    <button
+                      onClick={handleSendChat}
+                      className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg"
                     >
                       <Send className="h-5 w-5" />
-                    </motion.button>
+                    </button>
                   </div>
                 </div>
               </motion.div>
@@ -658,16 +604,16 @@ export const VideoCall: React.FC<VideoCallProps> = ({
         </div>
 
         {/* Controls */}
-        <div className="bg-gradient-to-r from-gray-900 to-gray-800 p-4 flex items-center justify-center space-x-4 border-t border-gray-700 shadow-lg flex-wrap gap-2">
+        <div className="bg-gradient-to-r from-gray-900 to-gray-800 p-4 border-t border-gray-700 flex items-center justify-center gap-4 flex-wrap">
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
-            onClick={toggleAudio}
-            className={`p-3 rounded-full transition-all duration-200 font-medium ${
+            onClick={handleToggleAudio}
+            className={`p-3 rounded-full transition-all ${
               audioEnabled
-                ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
-                : 'bg-red-600 hover:bg-red-700 text-white shadow-lg'
-            }`}
+                ? 'bg-blue-600 hover:bg-blue-700'
+                : 'bg-red-600 hover:bg-red-700'
+            } text-white`}
             title={audioEnabled ? 'Mute' : 'Unmute'}
           >
             {audioEnabled ? <Mic className="h-6 w-6" /> : <MicOff className="h-6 w-6" />}
@@ -676,12 +622,12 @@ export const VideoCall: React.FC<VideoCallProps> = ({
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
-            onClick={toggleVideo}
-            className={`p-3 rounded-full transition-all duration-200 font-medium ${
+            onClick={handleToggleVideo}
+            className={`p-3 rounded-full transition-all ${
               videoEnabled
-                ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
-                : 'bg-red-600 hover:bg-red-700 text-white shadow-lg'
-            }`}
+                ? 'bg-blue-600 hover:bg-blue-700'
+                : 'bg-red-600 hover:bg-red-700'
+            } text-white`}
             title={videoEnabled ? 'Stop video' : 'Start video'}
           >
             {videoEnabled ? <Video className="h-6 w-6" /> : <VideoOff className="h-6 w-6" />}
@@ -691,11 +637,11 @@ export const VideoCall: React.FC<VideoCallProps> = ({
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={() => setShowChat(!showChat)}
-            className={`p-3 rounded-full transition-all duration-200 font-medium ${
+            className={`p-3 rounded-full transition-all ${
               showChat
-                ? 'bg-green-600 hover:bg-green-700 text-white shadow-lg'
-                : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
-            }`}
+                ? 'bg-green-600 hover:bg-green-700'
+                : 'bg-blue-600 hover:bg-blue-700'
+            } text-white`}
             title={showChat ? 'Hide chat' : 'Show chat'}
           >
             <MessageCircle className="h-6 w-6" />
@@ -704,8 +650,8 @@ export const VideoCall: React.FC<VideoCallProps> = ({
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
-            onClick={endCall}
-            className="p-3 bg-red-600 hover:bg-red-700 text-white rounded-full transition-all duration-200 shadow-lg font-medium"
+            onClick={handleEndCall}
+            className="p-3 bg-red-600 hover:bg-red-700 text-white rounded-full transition-all"
             title="End call"
           >
             <PhoneOff className="h-6 w-6" />
