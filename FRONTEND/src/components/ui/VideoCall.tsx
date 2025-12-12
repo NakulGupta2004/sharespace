@@ -101,17 +101,22 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     };
   }, []);
 
-  // Create peer connection
+  // Create peer connection with proper setup
   const createPeerConnection = (remoteUserId: string): RTCPeerConnection => {
+    console.log(`Creating peer connection with ${remoteUserId}`);
+    
     const peerConnection = new RTCPeerConnection({
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' }
       ]
     });
 
-    // Add local stream tracks
+    // Add local stream tracks BEFORE setting up handlers
     if (localStream) {
+      console.log(`Adding local stream tracks to peer connection with ${remoteUserId}`);
       localStream.getTracks().forEach(track => {
         peerConnection.addTrack(track, localStream);
       });
@@ -119,22 +124,34 @@ export const VideoCall: React.FC<VideoCallProps> = ({
 
     // Handle remote stream
     peerConnection.ontrack = (event) => {
-      console.log(`Received remote track from ${remoteUserId}`);
-      setParticipants(prev =>
-        prev.map(p =>
-          p.userId === remoteUserId ? { ...p, stream: event.streams[0] } : p
-        )
-      );
+      console.log(`🎥 Received remote stream from ${remoteUserId}`, event.streams);
+      
+      if (event.streams && event.streams.length > 0) {
+        const remoteStream = event.streams[0];
+        
+        // Update state
+        setParticipants(prev =>
+          prev.map(p =>
+            p.userId === remoteUserId ? { ...p, stream: remoteStream } : p
+          )
+        );
 
-      const videoEl = remoteVideoRefs.current[remoteUserId];
-      if (videoEl) {
-        videoEl.srcObject = event.streams[0];
+        // Set video element srcObject immediately
+        const videoEl = remoteVideoRefs.current[remoteUserId];
+        if (videoEl) {
+          console.log(`Setting video srcObject for ${remoteUserId}`);
+          videoEl.srcObject = remoteStream;
+          videoEl.play().catch(err => console.error(`Error playing video for ${remoteUserId}:`, err));
+        } else {
+          console.warn(`Video ref not found for ${remoteUserId}`);
+        }
       }
     };
 
     // Handle ICE candidates
     peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
+        console.log(`📤 Sending ICE candidate to ${remoteUserId}`);
         socket?.emit('call:ice-candidate', {
           to: remoteUserId,
           candidate: event.candidate,
@@ -145,12 +162,11 @@ export const VideoCall: React.FC<VideoCallProps> = ({
 
     // Handle connection state changes
     peerConnection.onconnectionstatechange = () => {
-      console.log(`Connection state with ${remoteUserId}:`, peerConnection.connectionState);
-      if (peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'disconnected') {
-        console.log(`Closing connection with ${remoteUserId}`);
-        peerConnection.close();
-        delete peerConnectionsRef.current[remoteUserId];
-      }
+      console.log(`🔗 Connection state with ${remoteUserId}:`, peerConnection.connectionState);
+    };
+
+    peerConnection.oniceconnectionstatechange = () => {
+      console.log(`❄️ ICE connection state with ${remoteUserId}:`, peerConnection.iceConnectionState);
     };
 
     peerConnectionsRef.current[remoteUserId] = peerConnection;
@@ -160,15 +176,23 @@ export const VideoCall: React.FC<VideoCallProps> = ({
   // Create and send offer
   const createAndSendOffer = async (remoteUserId: string) => {
     try {
-      const peerConnection = createPeerConnection(remoteUserId);
+      console.log(`Creating offer for ${remoteUserId}`);
+      
+      // Ensure peer connection exists
+      let peerConnection = peerConnectionsRef.current[remoteUserId];
+      if (!peerConnection) {
+        peerConnection = createPeerConnection(remoteUserId);
+      }
 
       const offer = await peerConnection.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true
       });
 
+      console.log(`Setting local description (offer) for ${remoteUserId}`);
       await peerConnection.setLocalDescription(offer);
 
+      console.log(`Sending offer to ${remoteUserId}`);
       socket?.emit('call:offer', {
         to: remoteUserId,
         offer: offer,
@@ -180,154 +204,151 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     }
   };
 
-  // Handle user joined
-  const handleUserJoined = (data: { userId: string; userName: string }) => {
-    if (data.userId === user?.id) return;
-
-    console.log(`User joined: ${data.userName}`);
-
-    setParticipants(prev => {
-      if (prev.some(p => p.userId === data.userId)) return prev;
-      return [...prev, {
-        userId: data.userId,
-        userName: data.userName,
-        videoEnabled: true,
-        audioEnabled: true
-      }];
-    });
-
-    // Create offer for new user
-    if (localStream) {
-      createAndSendOffer(data.userId);
-    }
-  };
-
-  // Handle user left
-  const handleUserLeft = (data: { userId: string }) => {
-    console.log(`User left: ${data.userId}`);
-
-    setParticipants(prev => prev.filter(p => p.userId !== data.userId));
-
-    if (peerConnectionsRef.current[data.userId]) {
-      peerConnectionsRef.current[data.userId].close();
-      delete peerConnectionsRef.current[data.userId];
-    }
-
-    if (remoteVideoRefs.current[data.userId]) {
-      remoteVideoRefs.current[data.userId] = null;
-    }
-  };
-
-  // Handle offer
-  const handleOffer = async (data: { offer: RTCSessionDescriptionInit; from: string; fromName: string }) => {
-    try {
-      console.log(`Received offer from ${data.fromName}`);
-
-      let peerConnection = peerConnectionsRef.current[data.from];
-      if (!peerConnection) {
-        peerConnection = createPeerConnection(data.from);
-      }
-
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-
-      const answer = await peerConnection.createAnswer({
-        offerToReceiveAudio: true,
-        offerToReceiveVideo: true
-      });
-
-      await peerConnection.setLocalDescription(answer);
-
-      socket?.emit('call:answer', {
-        to: data.from,
-        answer: answer,
-        from: user?.id
-      });
-    } catch (err) {
-      console.error('Error handling offer:', err);
-    }
-  };
-
-  // Handle answer
-  const handleAnswer = async (data: { answer: RTCSessionDescriptionInit; from: string }) => {
-    try {
-      console.log(`Received answer from ${data.from}`);
-
-      const peerConnection = peerConnectionsRef.current[data.from];
-      if (peerConnection) {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-      }
-    } catch (err) {
-      console.error('Error handling answer:', err);
-    }
-  };
-
-  // Handle ICE candidate
-  const handleIceCandidate = async (data: { candidate: RTCIceCandidate; from: string }) => {
-    try {
-      const peerConnection = peerConnectionsRef.current[data.from];
-      if (peerConnection && data.candidate) {
-        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-      }
-    } catch (err) {
-      console.error('Error handling ICE candidate:', err);
-    }
-  };
-
-  // Handle audio toggle
-  const handleAudioToggled = (data: { userId: string; enabled: boolean }) => {
-    setParticipants(prev =>
-      prev.map(p =>
-        p.userId === data.userId ? { ...p, audioEnabled: data.enabled } : p
-      )
-    );
-  };
-
-  // Handle video toggle
-  const handleVideoToggled = (data: { userId: string; enabled: boolean }) => {
-    setParticipants(prev =>
-      prev.map(p =>
-        p.userId === data.userId ? { ...p, videoEnabled: data.enabled } : p
-      )
-    );
-  };
-
-  // Handle chat message
-  const handleChatMessage = (data: { userId: string; userName: string; message: string }) => {
-    setChatMessages(prev => [
-      ...prev,
-      {
-        userId: data.userId,
-        userName: data.userName,
-        message: data.message,
-        timestamp: Date.now()
-      }
-    ]);
-  };
-
   // Setup socket listeners
   useEffect(() => {
     if (!socket) return;
 
-    socket.on('call:user-joined', handleUserJoined);
-    socket.on('call:offer', handleOffer);
-    socket.on('call:answer', handleAnswer);
-    socket.on('call:ice-candidate', handleIceCandidate);
-    socket.on('call:user-left', handleUserLeft);
-    socket.on('call:audio-toggled', handleAudioToggled);
-    socket.on('call:video-toggled', handleVideoToggled);
-    socket.on('call:chat', handleChatMessage);
+    console.log('🔌 Setting up socket listeners');
+
+    const onUserJoined = (data: { userId: string; userName: string }) => {
+      if (data.userId === user?.id) return;
+      console.log(`👤 User joined: ${data.userName}`);
+      
+      setParticipants(prev => {
+        if (prev.some(p => p.userId === data.userId)) return prev;
+        return [...prev, {
+          userId: data.userId,
+          userName: data.userName,
+          videoEnabled: true,
+          audioEnabled: true
+        }];
+      });
+
+      if (localStream) {
+        createAndSendOffer(data.userId);
+      }
+    };
+
+    const onOffer = async (data: { offer: RTCSessionDescriptionInit; from: string; fromName: string }) => {
+      try {
+        console.log(`📩 Received offer from ${data.fromName}`);
+
+        let peerConnection = peerConnectionsRef.current[data.from];
+        if (!peerConnection) {
+          peerConnection = createPeerConnection(data.from);
+        }
+
+        if (peerConnection.remoteDescription) {
+          console.warn(`Already have remote description for ${data.from}`);
+          return;
+        }
+
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+        const answer = await peerConnection.createAnswer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: true
+        });
+
+        await peerConnection.setLocalDescription(answer);
+
+        socket?.emit('call:answer', {
+          to: data.from,
+          answer: answer,
+          from: user?.id
+        });
+      } catch (err) {
+        console.error('Error handling offer:', err);
+      }
+    };
+
+    const onAnswer = async (data: { answer: RTCSessionDescriptionInit; from: string }) => {
+      try {
+        console.log(`📩 Received answer from ${data.from}`);
+        const peerConnection = peerConnectionsRef.current[data.from];
+        if (!peerConnection) {
+          console.warn(`No peer connection for answer from ${data.from}`);
+          return;
+        }
+
+        if (peerConnection.remoteDescription) {
+          console.warn(`Already have remote description for ${data.from}`);
+          return;
+        }
+
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+      } catch (err) {
+        console.error('Error handling answer:', err);
+      }
+    };
+
+    const onIceCandidate = async (data: { candidate: RTCIceCandidate; from: string }) => {
+      try {
+        const peerConnection = peerConnectionsRef.current[data.from];
+        if (!peerConnection) return;
+
+        if (data.candidate) {
+          await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+        }
+      } catch (err) {
+        console.error('Error adding ICE candidate:', err);
+      }
+    };
+
+    const onUserLeft = (data: { userId: string }) => {
+      console.log(`👋 User left: ${data.userId}`);
+      setParticipants(prev => prev.filter(p => p.userId !== data.userId));
+
+      if (peerConnectionsRef.current[data.userId]) {
+        peerConnectionsRef.current[data.userId].close();
+        delete peerConnectionsRef.current[data.userId];
+      }
+
+      if (remoteVideoRefs.current[data.userId]) {
+        remoteVideoRefs.current[data.userId] = null;
+      }
+    };
+
+    const onAudioToggled = (data: { userId: string; enabled: boolean }) => {
+      setParticipants(prev =>
+        prev.map(p => p.userId === data.userId ? { ...p, audioEnabled: data.enabled } : p)
+      );
+    };
+
+    const onVideoToggled = (data: { userId: string; enabled: boolean }) => {
+      setParticipants(prev =>
+        prev.map(p => p.userId === data.userId ? { ...p, videoEnabled: data.enabled } : p)
+      );
+    };
+
+    const onChatMessage = (data: { userId: string; userName: string; message: string }) => {
+      setChatMessages(prev => [...prev, {
+        userId: data.userId,
+        userName: data.userName,
+        message: data.message,
+        timestamp: Date.now()
+      }]);
+    };
+
+    socket.on('call:user-joined', onUserJoined);
+    socket.on('call:offer', onOffer);
+    socket.on('call:answer', onAnswer);
+    socket.on('call:ice-candidate', onIceCandidate);
+    socket.on('call:user-left', onUserLeft);
+    socket.on('call:audio-toggled', onAudioToggled);
+    socket.on('call:video-toggled', onVideoToggled);
+    socket.on('call:chat', onChatMessage);
 
     return () => {
-      socket.off('call:user-joined', handleUserJoined);
-      socket.off('call:offer', handleOffer);
-      socket.off('call:answer', handleAnswer);
-      socket.off('call:ice-candidate', handleIceCandidate);
-      socket.off('call:user-left', handleUserLeft);
-      socket.off('call:audio-toggled', handleAudioToggled);
-      socket.off('call:video-toggled', handleVideoToggled);
-      socket.off('call:chat', handleChatMessage);
+      socket.off('call:user-joined', onUserJoined);
+      socket.off('call:offer', onOffer);
+      socket.off('call:answer', onAnswer);
+      socket.off('call:ice-candidate', onIceCandidate);
+      socket.off('call:user-left', onUserLeft);
+      socket.off('call:audio-toggled', onAudioToggled);
+      socket.off('call:video-toggled', onVideoToggled);
+      socket.off('call:chat', onChatMessage);
     };
-  }, [socket, user?.id]);
+  }, [socket, user?.id, localStream]);
 
   // Auto-scroll chat
   useEffect(() => {
