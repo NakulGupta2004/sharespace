@@ -8,7 +8,7 @@
     "dev": "nodemon server.js",
     "dev:debug": "nodemon --inspect server.js",
     "dev:verbose": "nodemon --verbose server.js",
-    "build": "echo 'No build step required for production'",
+    "build": "npm install",
     "test": "jest",
     "test:watch": "jest --watch",
     "seed": "node scripts/seedDatabase.js",
