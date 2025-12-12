@@ -378,6 +378,47 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Video call chat messages
+  socket.on('videoCall:chat', (data) => {
+    const { teamId, userId, userName, message } = data;
+    console.log(`Chat message in video call from ${userName}: ${message}`);
+    
+    // Broadcast message to all users in the team
+    io.to(`team_${teamId}`).emit('videoCall:chat', {
+      userId,
+      userName,
+      message,
+      teamId,
+      timestamp: Date.now()
+    });
+  });
+
+  // Video call invite acceptance
+  socket.on('videoCall:accept-invite', (data) => {
+    const { teamId, userId, userName, callId, initiatorId } = data;
+    console.log(`User ${userName} accepted video call invite in team ${teamId}`);
+    
+    // Notify initiator and other participants that user joined
+    io.to(`team_${teamId}`).emit('videoCall:user-joined', {
+      userId,
+      userName,
+      callId
+    });
+  });
+
+  // Video call invite rejection
+  socket.on('videoCall:decline-invite', (data) => {
+    const { teamId, userId, userName, callId } = data;
+    console.log(`User ${userName} declined video call invite in team ${teamId}`);
+    
+    // Notify initiator that user declined
+    io.to(`user_${data.initiatorId}`).emit('videoCall:user-declined', {
+      userId,
+      userName,
+      teamId
+    });
+  });
+
   // ===== PERSONAL VIDEO CALL EVENTS =====
 
   socket.on('personalCall:initiate', (data) => {

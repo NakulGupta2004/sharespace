@@ -136,6 +136,7 @@ export default function TeamWorkspacePage() {
   const [showTeamVideoCall, setShowTeamVideoCall] = useState(false);
   const [showPersonalVideoCall, setShowPersonalVideoCall] = useState(false);
   const [personalCallRecipient, setPersonalCallRecipient] = useState<{ id: string; name: string } | null>(null);
+  const [videoCallInvite, setVideoCallInvite] = useState<any>(null);
 
   // Close emoji picker when clicking outside
   useEffect(() => {
@@ -373,6 +374,47 @@ export default function TeamWorkspacePage() {
     if (activeTab === 'groupchat') fetchGroupMessages();
   }, [selectedTeam, activeTab]);
 
+  // Handle video call invites
+  const handleAcceptVideoCallInvite = () => {
+    if (!videoCallInvite) return;
+    
+    const inviteTeam = teams.find(t => t._id === videoCallInvite.teamId);
+    if (inviteTeam) {
+      setSelectedTeam(inviteTeam);
+      setTimeout(() => {
+        setShowTeamVideoCall(true);
+      }, 100);
+    }
+    
+    // Notify backend of acceptance
+    socket?.emit('videoCall:accept-invite', {
+      teamId: videoCallInvite.teamId,
+      userId: user?.id,
+      userName: user?.name,
+      callId: videoCallInvite.callId,
+      initiatorId: videoCallInvite.initiatorId
+    });
+    
+    setVideoCallInvite(null);
+    toast.success('Joined the video call! 📹');
+  };
+
+  const handleDeclineVideoCallInvite = () => {
+    if (!videoCallInvite) return;
+    
+    // Notify backend of decline
+    socket?.emit('videoCall:decline-invite', {
+      teamId: videoCallInvite.teamId,
+      userId: user?.id,
+      userName: user?.name,
+      callId: videoCallInvite.callId,
+      initiatorId: videoCallInvite.initiatorId
+    });
+    
+    setVideoCallInvite(null);
+    toast.error('Declined the video call');
+  };
+
   // Socket event listeners
   useEffect(() => {
     if (!socket || !isConnected) return;
@@ -436,29 +478,13 @@ export default function TeamWorkspacePage() {
         toast.success(`${data.userName || 'Someone'} joined the team!`);
       }
     };
-
     const handleVideoCallInvite = (data: any) => {
       console.log('📞 Video call invite received:', data);
-      // If the invite is for the current team, automatically open the video call
-      if (data.teamId === selectedTeam?._id) {
-        setShowTeamVideoCall(true);
-        toast.success(`${data.initiatorName} is starting a team video call! 📹`, {
-          duration: 4000
-        });
-      } else {
-        // If it's for a different team, switch to that team and open the video call
-        const inviteTeam = teams.find(t => t._id === data.teamId);
-        if (inviteTeam) {
-          setSelectedTeam(inviteTeam);
-          // Use setTimeout to ensure state is updated before opening video call
-          setTimeout(() => {
-            setShowTeamVideoCall(true);
-          }, 100);
-          toast.success(`${data.initiatorName} is starting a video call in ${data.teamName}! 📹`, {
-            duration: 4000
-          });
-        }
-      }
+      // Show invite dialog for user to accept or decline
+      setVideoCallInvite(data);
+      toast.success(`📞 Incoming video call from ${data.initiatorName}!`, {
+        duration: 6000
+      });
     };
 
     socket.on('new_team_message', handleNewTeamMessage);
@@ -2721,6 +2747,61 @@ export default function TeamWorkspacePage() {
                     className="flex-1 px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-medium transition-colors"
                   >
                     Delete
+                  </motion.button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Video Call Invite Dialog */}
+      <AnimatePresence>
+        {videoCallInvite && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 bg-black/50 flex items-center justify-center backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 max-w-md w-full mx-4"
+            >
+              <div className="text-center">
+                <div className="mb-6">
+                  <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-full mb-4">
+                    <Video className="h-10 w-10 text-white" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                    Incoming Video Call
+                  </h2>
+                  <p className="text-lg text-gray-600 dark:text-gray-300 mb-1">
+                    {videoCallInvite.initiatorName}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    wants to start a video call in <span className="font-semibold text-gray-700 dark:text-gray-200">{videoCallInvite.teamName}</span>
+                  </p>
+                </div>
+
+                <div className="flex gap-4 mt-8">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleDeclineVideoCallInvite}
+                    className="flex-1 px-4 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    Decline
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleAcceptVideoCallInvite}
+                    className="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold hover:from-cyan-600 hover:to-blue-700 transition-all shadow-lg"
+                  >
+                    Accept
                   </motion.button>
                 </div>
               </div>
