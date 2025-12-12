@@ -154,35 +154,62 @@ export const VideoCallNew: React.FC<VideoCallProps> = ({
   // Create peer connection and send offer
   const createAndSendOffer = async (peerId: string) => {
     try {
+      console.log(`🔌 Creating peer connection for ${peerId}`);
+      
       const peerConnection = new RTCPeerConnection({
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' }
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' }
         ]
       });
 
       peerConnectionsRef.current[peerId] = peerConnection;
 
-      // Add local stream
+      // Add local stream FIRST
       if (localStream) {
         localStream.getTracks().forEach(track => {
+          console.log(`📤 Adding local track: ${track.kind}`);
           peerConnection.addTrack(track, localStream);
         });
       }
 
-      // Handle remote stream
+      // Setup ontrack handler BEFORE creating offer
       peerConnection.ontrack = (event) => {
+        console.log(`📥 Received remote track from ${peerId}:`, event.track.kind);
+        console.log(`Remote stream:`, event.streams[0]);
+        
+        // Update participants with the stream
         setParticipants(prev =>
-          prev.map(p => (p.userId === peerId ? { ...p, stream: event.streams[0] } : p))
+          prev.map(p => {
+            if (p.userId === peerId) {
+              console.log(`✅ Updating participant ${peerId} with stream`);
+              return { ...p, stream: event.streams[0] };
+            }
+            return p;
+          })
         );
-        if (remoteVideoRefs.current[peerId]) {
-          remoteVideoRefs.current[peerId]!.srcObject = event.streams[0];
+
+        // Set the srcObject on the video element
+        const videoEl = remoteVideoRefs.current[peerId];
+        if (videoEl) {
+          console.log(`🎬 Setting srcObject for ${peerId}`);
+          videoEl.srcObject = event.streams[0];
+          videoEl.play().catch(e => console.error(`Play error for ${peerId}:`, e));
+        } else {
+          console.warn(`⚠️ Video ref not found for ${peerId}`);
         }
+      };
+
+      // Handle connection state changes
+      peerConnection.onconnectionstatechange = () => {
+        console.log(`Connection state for ${peerId}: ${peerConnection.connectionState}`);
       };
 
       // Handle ICE candidates
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
+          console.log(`🧊 Sending ICE candidate to ${peerId}`);
           socket?.emit('videoCall:ice-candidate', {
             to: peerId,
             from: user?.id,
@@ -193,8 +220,15 @@ export const VideoCallNew: React.FC<VideoCallProps> = ({
       };
 
       // Create and send offer
-      const offer = await peerConnection.createOffer();
+      console.log(`📝 Creating offer for ${peerId}`);
+      const offer = await peerConnection.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true
+      });
+      
       await peerConnection.setLocalDescription(offer);
+      
+      console.log(`📤 Sending offer to ${peerId}`);
       socket?.emit('videoCall:offer', {
         to: peerId,
         from: user?.id,
@@ -215,33 +249,57 @@ export const VideoCallNew: React.FC<VideoCallProps> = ({
     fromName: string;
   }) => {
     try {
+      console.log(`📥 Received offer from ${data.fromName} (${data.from})`);
+      
       if (!peerConnectionsRef.current[data.from]) {
+        console.log(`🔌 Creating new peer connection for offer from ${data.from}`);
+        
         const peerConnection = new RTCPeerConnection({
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' }
           ]
         });
 
         peerConnectionsRef.current[data.from] = peerConnection;
 
+        // Add local stream
         if (localStream) {
           localStream.getTracks().forEach(track => {
+            console.log(`📤 Adding local track to offer PC: ${track.kind}`);
             peerConnection.addTrack(track, localStream);
           });
         }
 
+        // Setup ontrack handler BEFORE setting remote description
         peerConnection.ontrack = (event) => {
+          console.log(`📥 Received remote track from ${data.from}:`, event.track.kind);
+          console.log(`Remote stream:`, event.streams[0]);
+          
           setParticipants(prev =>
-            prev.map(p => (p.userId === data.from ? { ...p, stream: event.streams[0] } : p))
+            prev.map(p => {
+              if (p.userId === data.from) {
+                console.log(`✅ Updating participant ${data.from} with stream`);
+                return { ...p, stream: event.streams[0] };
+              }
+              return p;
+            })
           );
-          if (remoteVideoRefs.current[data.from]) {
-            remoteVideoRefs.current[data.from]!.srcObject = event.streams[0];
+          
+          const videoEl = remoteVideoRefs.current[data.from];
+          if (videoEl) {
+            console.log(`🎬 Setting srcObject for ${data.from}`);
+            videoEl.srcObject = event.streams[0];
+            videoEl.play().catch(e => console.error(`Play error for ${data.from}:`, e));
+          } else {
+            console.warn(`⚠️ Video ref not found for ${data.from}`);
           }
         };
 
         peerConnection.onicecandidate = (event) => {
           if (event.candidate) {
+            console.log(`🧊 Sending ICE candidate to ${data.from}`);
             socket?.emit('videoCall:ice-candidate', {
               to: data.from,
               from: user?.id,
@@ -253,10 +311,19 @@ export const VideoCallNew: React.FC<VideoCallProps> = ({
       }
 
       const peerConnection = peerConnectionsRef.current[data.from];
+      
+      console.log(`📋 Setting remote description for ${data.from}`);
       await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
 
-      const answer = await peerConnection.createAnswer();
+      console.log(`📝 Creating answer for ${data.from}`);
+      const answer = await peerConnection.createAnswer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true
+      });
+      
       await peerConnection.setLocalDescription(answer);
+      
+      console.log(`📤 Sending answer to ${data.from}`);
       socket?.emit('videoCall:answer', {
         to: data.from,
         from: user?.id,
@@ -271,9 +338,14 @@ export const VideoCallNew: React.FC<VideoCallProps> = ({
   // Handle incoming answer
   const handleAnswer = async (data: { answer: RTCSessionDescriptionInit; from: string }) => {
     try {
+      console.log(`📥 Received answer from ${data.from}`);
       const peerConnection = peerConnectionsRef.current[data.from];
       if (peerConnection) {
+        console.log(`📋 Setting remote description from answer for ${data.from}`);
         await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+        console.log(`✅ Answer processed for ${data.from}`);
+      } else {
+        console.error(`❌ No peer connection found for ${data.from}`);
       }
     } catch (err) {
       console.error('Error handling answer:', err);
@@ -285,7 +357,10 @@ export const VideoCallNew: React.FC<VideoCallProps> = ({
     try {
       const peerConnection = peerConnectionsRef.current[data.from];
       if (peerConnection && data.candidate) {
+        console.log(`🧊 Adding ICE candidate from ${data.from}`);
         await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+      } else if (!peerConnection) {
+        console.warn(`⚠️ No peer connection for ICE candidate from ${data.from}`);
       }
     } catch (err) {
       console.error('Error adding ICE candidate:', err);
