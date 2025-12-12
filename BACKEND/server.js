@@ -282,6 +282,19 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('call:invite', (data) => {
+    const { teamId, from, fromName, callId } = data;
+    console.log(`📧 Invite from ${fromName} to join call in team ${teamId}`);
+
+    // Send invite to all team members except sender
+    socket.to(`team_${teamId}`).emit('videoCall:invite', {
+      teamId,
+      from,
+      fromName,
+      callId
+    });
+  });
+
   socket.on('call:offer', (data) => {
     const { to, offer, from, fromName } = data;
     console.log(`📤 Offer from ${fromName} to ${to}`);

@@ -60,6 +60,14 @@ export const VideoCallSimple: React.FC<VideoCallSimpleProps> = ({
           userName: user?.name,
           callId: callId.current
         });
+
+        // Send invites to team members
+        socket?.emit('call:invite', {
+          teamId,
+          from: user?.id,
+          fromName: user?.name,
+          callId: callId.current
+        });
       } catch (err) {
         setError(
           `Failed to access camera/mic: ${err instanceof DOMException ? err.message : 'Unknown error'}`
