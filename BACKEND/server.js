@@ -271,6 +271,10 @@ io.on('connection', (socket) => {
     socket.callId = callId;
     socket.teamId = teamId;
     
+    // JOIN THE TEAM ROOM - THIS IS CRITICAL!
+    socket.join(`team_${teamId}`);
+    console.log(`✅ Socket joined room: team_${teamId}`);
+    
     if (isTeamCall) {
       try {
         // Get team members to send invites
@@ -306,12 +310,15 @@ io.on('connection', (socket) => {
       }
     }
     
-    // Notify other participants in the team that someone joined
-    socket.to(`team_${teamId}`).emit('videoCall:user-joined', {
+    // Broadcast to ALL participants (including the initiator) that someone joined
+    // This ensures the initiator knows when other members join
+    io.to(`team_${teamId}`).emit('videoCall:user-joined', {
       userId,
       userName,
       callId
     });
+    
+    console.log(`📢 Broadcasted user-joined event to team_${teamId}`);
   });
 
   socket.on('videoCall:offer', (data) => {
@@ -372,7 +379,11 @@ io.on('connection', (socket) => {
     const { teamId, userId } = data;
     console.log(`User ${userId} leaving video call in team ${teamId}`);
     
-    // Notify other participants
+    // LEAVE THE TEAM ROOM
+    socket.leave(`team_${teamId}`);
+    console.log(`✅ Socket left room: team_${teamId}`);
+    
+    // Notify other participants that this user left
     socket.to(`team_${teamId}`).emit('videoCall:user-left', {
       userId
     });
@@ -398,12 +409,23 @@ io.on('connection', (socket) => {
     const { teamId, userId, userName, callId, initiatorId } = data;
     console.log(`User ${userName} accepted video call invite in team ${teamId}`);
     
-    // Notify initiator and other participants that user joined
+    // JOIN THE TEAM ROOM - CRITICAL FOR RECEIVING BROADCASTS
+    socket.join(`team_${teamId}`);
+    console.log(`✅ Socket joined room: team_${teamId} (accept-invite)`);
+    
+    // Store call info
+    socket.callId = callId;
+    socket.teamId = teamId;
+    
+    // Notify ALL participants (including initiator) that this user joined
+    // This ensures everyone knows about new participants
     io.to(`team_${teamId}`).emit('videoCall:user-joined', {
       userId,
       userName,
       callId
     });
+    
+    console.log(`📢 Broadcasted user-joined event for ${userName} to team_${teamId}`);
   });
 
   // Video call invite rejection

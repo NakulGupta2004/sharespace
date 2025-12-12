@@ -110,6 +110,28 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     }
   };
 
+  const handleAudioToggled = (data: {
+    userId: string;
+    enabled: boolean;
+  }) => {
+    setParticipants(prev =>
+      prev.map(p =>
+        p.userId === data.userId ? { ...p, audioEnabled: data.enabled } : p
+      )
+    );
+  };
+
+  const handleVideoToggled = (data: {
+    userId: string;
+    enabled: boolean;
+  }) => {
+    setParticipants(prev =>
+      prev.map(p =>
+        p.userId === data.userId ? { ...p, videoEnabled: data.enabled } : p
+      )
+    );
+  };
+
   const sendChatMessage = () => {
     if (chatInput.trim()) {
       socket?.emit('videoCall:chat', {
@@ -315,6 +337,8 @@ export const VideoCall: React.FC<VideoCallProps> = ({
     socket?.on('videoCall:ice-candidate', handleIceCandidate);
     socket?.on('videoCall:invite', handleInvite);
     socket?.on('videoCall:chat', handleChatMessage);
+    socket?.on('videoCall:audio-toggled', handleAudioToggled);
+    socket?.on('videoCall:video-toggled', handleVideoToggled);
 
     return () => {
       socket?.off('videoCall:user-joined', handleUserJoined);
@@ -324,8 +348,10 @@ export const VideoCall: React.FC<VideoCallProps> = ({
       socket?.off('videoCall:ice-candidate', handleIceCandidate);
       socket?.off('videoCall:invite', handleInvite);
       socket?.off('videoCall:chat', handleChatMessage);
+      socket?.off('videoCall:audio-toggled', handleAudioToggled);
+      socket?.off('videoCall:video-toggled', handleVideoToggled);
     };
-  }, [socket, handleUserJoined, handleUserLeft, handleOffer, handleAnswer, handleIceCandidate, handleInvite, handleChatMessage]);
+  }, [socket, handleUserJoined, handleUserLeft, handleOffer, handleAnswer, handleIceCandidate, handleInvite, handleChatMessage, handleAudioToggled, handleVideoToggled]);
 
   const toggleAudio = () => {
     if (localStream) {
