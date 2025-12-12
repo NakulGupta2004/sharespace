@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
-import { VideoCall } from '../components/ui/VideoCall';
+import { VideoCallNew } from '../components/ui/VideoCallNew';
 import { PersonalVideoCall } from '../components/ui/PersonalVideoCall';
 import {
   Users,
@@ -374,26 +374,28 @@ export default function TeamWorkspacePage() {
     if (activeTab === 'groupchat') fetchGroupMessages();
   }, [selectedTeam, activeTab]);
 
-  // Handle video call invites
+  // Handle video call invites - REDESIGNED
   const handleAcceptVideoCallInvite = () => {
     if (!videoCallInvite) return;
     
     const inviteTeam = teams.find(t => t._id === videoCallInvite.teamId);
     if (inviteTeam) {
       setSelectedTeam(inviteTeam);
+      
+      // Notify backend of acceptance with new event name
+      socket?.emit('videoCall:accept', {
+        teamId: videoCallInvite.teamId,
+        userId: user?.id,
+        userName: user?.name,
+        callId: videoCallInvite.callId,
+        initiatorId: videoCallInvite.initiatorId
+      });
+      
+      // Open video call after a small delay
       setTimeout(() => {
         setShowTeamVideoCall(true);
       }, 100);
     }
-    
-    // Notify backend of acceptance
-    socket?.emit('videoCall:accept-invite', {
-      teamId: videoCallInvite.teamId,
-      userId: user?.id,
-      userName: user?.name,
-      callId: videoCallInvite.callId,
-      initiatorId: videoCallInvite.initiatorId
-    });
     
     setVideoCallInvite(null);
     toast.success('Joined the video call! 📹');
@@ -402,8 +404,8 @@ export default function TeamWorkspacePage() {
   const handleDeclineVideoCallInvite = () => {
     if (!videoCallInvite) return;
     
-    // Notify backend of decline
-    socket?.emit('videoCall:decline-invite', {
+    // Notify backend of decline with new event name
+    socket?.emit('videoCall:decline', {
       teamId: videoCallInvite.teamId,
       userId: user?.id,
       userName: user?.name,
@@ -411,6 +413,7 @@ export default function TeamWorkspacePage() {
       initiatorId: videoCallInvite.initiatorId
     });
     
+    // Clear the invite - DO NOT open video call
     setVideoCallInvite(null);
     toast.error('Declined the video call');
   };
@@ -2816,11 +2819,12 @@ export default function TeamWorkspacePage() {
       {/* Team Video Call Component */}
       <AnimatePresence>
         {showTeamVideoCall && selectedTeam && (
-          <VideoCall
+          <VideoCallNew
             teamId={selectedTeam._id}
             teamName={selectedTeam.name}
             onClose={() => setShowTeamVideoCall(false)}
             isTeamCall={true}
+            initiatorId={user?.id}
           />
         )}
       </AnimatePresence>
