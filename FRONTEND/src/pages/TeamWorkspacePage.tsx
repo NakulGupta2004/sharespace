@@ -415,6 +415,15 @@ export default function TeamWorkspacePage() {
     toast.error('Declined the video call');
   };
 
+  const handleVideoCallInvite = (data: any) => {
+    console.log('📞 Video call invite received:', data);
+    // Show invite dialog for user to accept or decline
+    setVideoCallInvite(data);
+    toast.success(`📞 Incoming video call from ${data.initiatorName}!`, {
+      duration: 6000
+    });
+  };
+
   // Socket event listeners
   useEffect(() => {
     if (!socket || !isConnected) return;
@@ -477,14 +486,6 @@ export default function TeamWorkspacePage() {
         fetchTeams();
         toast.success(`${data.userName || 'Someone'} joined the team!`);
       }
-    };
-    const handleVideoCallInvite = (data: any) => {
-      console.log('📞 Video call invite received:', data);
-      // Show invite dialog for user to accept or decline
-      setVideoCallInvite(data);
-      toast.success(`📞 Incoming video call from ${data.initiatorName}!`, {
-        duration: 6000
-      });
     };
 
     socket.on('new_team_message', handleNewTeamMessage);
@@ -1793,15 +1794,17 @@ export default function TeamWorkspacePage() {
                             
                             {/* Chat Actions */}
                             <div className="flex items-center space-x-2">
-                              <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => setShowTeamVideoCall(true)}
-                                className="p-2 text-green-600 hover:bg-green-100 dark:text-green-400 dark:hover:bg-green-900/30 rounded-xl transition-all duration-200"
-                                title="Start Team Video Call"
-                              >
-                                <Video className="h-5 w-5" />
-                              </motion.button>
+                              {selectedTeam?.admins?.some(admin => admin._id === user?.id) && (
+                                <motion.button
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={() => setShowTeamVideoCall(true)}
+                                  className="p-2 text-green-600 hover:bg-green-100 dark:text-green-400 dark:hover:bg-green-900/30 rounded-xl transition-all duration-200"
+                                  title="Start Team Video Call"
+                                >
+                                  <Video className="h-5 w-5" />
+                                </motion.button>
+                              )}
                               {selectedTeam?.admins?.some(admin => admin._id === user?.id) && (
                                 <motion.button
                                   whileHover={{ scale: 1.05 }}
