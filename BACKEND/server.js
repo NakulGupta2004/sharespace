@@ -260,215 +260,78 @@ io.on('connection', (socket) => {
     socket.to(`team_${data.teamId}`).emit('task_updated', data);
   });
 
-  // ===== VIDEO CALL EVENTS (REDESIGNED) =====
+  // ===== SIMPLE VIDEO CALL EVENTS =====
 
-  // STEP 1: Admin starts a video call - send invites to all team members
-  socket.on('videoCall:start', async (data) => {
-    const { teamId, userId, userName, callId, isTeamCall } = data;
-    console.log(`\n🎬 VIDEO CALL STARTED by ${userName} (${userId}) in team ${teamId}`);
-    
-    // Store call info on socket
-    socket.videoCallTeamId = teamId;
-    socket.videoCallId = callId;
-    socket.userId = userId;
-    socket.userName = userName;
-    
-    // Join the team's video call room
-    socket.join(`team_video_${teamId}`);
-    console.log(`✅ Initiator joined room: team_video_${teamId}`);
-    
-    if (isTeamCall) {
-      try {
-        const Team = require('./models/Team');
-        const team = await Team.findById(teamId);
-        
-        if (team && team.members && team.members.length > 0) {
-          console.log(`\n📢 Sending invites to ${team.members.length} team members...`);
-          
-          // Send invite to each member except initiator
-          team.members.forEach(memberId => {
-            const memberIdStr = memberId.toString ? memberId.toString() : memberId;
-            const userIdStr = userId.toString ? userId.toString() : userId;
-            
-            if (memberIdStr !== userIdStr) {
-              console.log(`   📞 Invite sent to: ${memberIdStr}`);
-              io.to(`user_${memberIdStr}`).emit('videoCall:invite', {
-                callId,
-                teamId,
-                teamName: team.name,
-                initiatorId: userId,
-                initiatorName: userName,
-                isTeamCall: true
-              });
-            }
-          });
-        }
-      } catch (err) {
-        console.error('Error sending invites:', err);
-      }
-    }
-  });
-
-  // STEP 2: Member accepts invite and joins the call
-  socket.on('videoCall:accept', async (data) => {
+  socket.on('call:join', async (data) => {
     const { teamId, userId, userName, callId } = data;
-    console.log(`\n✅ MEMBER ACCEPTED: ${userName} (${userId}) joined video call in team ${teamId}`);
-    
-    // Store call info
-    socket.videoCallTeamId = teamId;
-    socket.videoCallId = callId;
-    socket.userId = userId;
-    socket.userName = userName;
-    
-    // Join the video call room
-    socket.join(`team_video_${teamId}`);
-    console.log(`✅ Member joined room: team_video_${teamId}`);
-    
-    // Notify ALL participants that this member has joined
-    io.to(`team_video_${teamId}`).emit('videoCall:user-joined', {
-      userId,
-      userName,
-      callId
-    });
-    
-    console.log(`📢 Broadcasted user-joined event to all participants`);
-  });
+    console.log(`\n📞 ${userName} joined call in team ${teamId}`);
 
-  // STEP 2B: Non-initiator announces they're ready to connect
-  // This allows existing participants to create peer connections with them
-  socket.on('videoCall:participant-ready', (data) => {
-    const { teamId, userId, userName, callId } = data;
-    console.log(`\n👤 PARTICIPANT READY: ${userName} (${userId}) is ready to connect in team ${teamId}`);
-    
-    // Store call info
-    socket.videoCallTeamId = teamId;
-    socket.videoCallId = callId;
+    // Store info
+    socket.callTeamId = teamId;
+    socket.callId = callId;
     socket.userId = userId;
     socket.userName = userName;
-    
-    // Join the video call room
-    socket.join(`team_video_${teamId}`);
-    console.log(`✅ Participant joined room: team_video_${teamId}`);
-    
-    // Broadcast to all in the room that this participant is ready
-    // Existing participants will see this and create peer connections
-    io.to(`team_video_${teamId}`).emit('videoCall:participant-ready', {
+
+    // Join room
+    socket.join(`call_${teamId}`);
+
+    // Notify others in the room
+    socket.to(`call_${teamId}`).emit('call:user-joined', {
       userId,
       userName
     });
-    
-    console.log(`📢 Broadcasted participant-ready event to all in room`);
   });
 
-  // STEP 3: Member declines invite - just send notification, DON'T add to call
-  socket.on('videoCall:decline', (data) => {
-    const { teamId, userId, userName, initiatorId } = data;
-    console.log(`\n❌ MEMBER DECLINED: ${userName} (${userId}) declined video call invite`);
-    
-    // Only notify the initiator, don't add to the room
-    io.to(`user_${initiatorId}`).emit('videoCall:member-declined', {
-      userId,
-      userName,
-      teamId
-    });
-  });
+  socket.on('call:offer', (data) => {
+    const { to, offer, from, fromName } = data;
+    console.log(`📤 Offer from ${fromName} to ${to}`);
 
-  // STEP 4: WebRTC signaling - Offer
-  socket.on('videoCall:offer', (data) => {
-    const { to, from, fromName, offer, teamId } = data;
-    console.log(`\n📤 OFFER sent from ${fromName} (${from}) to ${to}`);
-    
-    io.to(`user_${to}`).emit('videoCall:offer', {
+    // Send to specific user
+    io.to(`user_${to}`).emit('call:offer', {
       offer,
       from,
-      fromName,
-      teamId
+      fromName
     });
   });
 
-  // STEP 5: WebRTC signaling - Answer
-  socket.on('videoCall:answer', (data) => {
-    const { to, from, answer, teamId } = data;
-    console.log(`\n📥 ANSWER sent from ${from} to ${to}`);
-    
-    io.to(`user_${to}`).emit('videoCall:answer', {
+  socket.on('call:answer', (data) => {
+    const { to, answer, from } = data;
+    console.log(`📥 Answer from ${from} to ${to}`);
+
+    io.to(`user_${to}`).emit('call:answer', {
       answer,
-      from,
-      teamId
+      from
     });
   });
 
-  // STEP 6: WebRTC signaling - ICE Candidate
-  socket.on('videoCall:ice-candidate', (data) => {
-    const { to, from, candidate } = data;
-    
-    io.to(`user_${to}`).emit('videoCall:ice-candidate', {
+  socket.on('call:ice-candidate', (data) => {
+    const { to, candidate, from } = data;
+
+    io.to(`user_${to}`).emit('call:ice-candidate', {
       candidate,
       from
     });
   });
 
-  // STEP 7: Toggle audio state
-  socket.on('videoCall:toggle-audio', (data) => {
-    const { teamId, userId, enabled } = data;
-    
-    io.to(`team_video_${teamId}`).emit('videoCall:audio-toggled', {
-      userId,
-      enabled
-    });
-  });
-
-  // STEP 8: Toggle video state
-  socket.on('videoCall:toggle-video', (data) => {
-    const { teamId, userId, enabled } = data;
-    
-    io.to(`team_video_${teamId}`).emit('videoCall:video-toggled', {
-      userId,
-      enabled
-    });
-  });
-
-  // STEP 9: Chat during call
-  socket.on('videoCall:chat', (data) => {
-    const { teamId, userId, userName, message } = data;
-    
-    io.to(`team_video_${teamId}`).emit('videoCall:chat', {
-      userId,
-      userName,
-      message,
-      teamId,
-      timestamp: Date.now()
-    });
-  });
-
-  // STEP 10: User leaves the call
-  socket.on('videoCall:end', (data) => {
+  socket.on('call:leave', (data) => {
     const { teamId, userId } = data;
-    console.log(`\n⏹️  USER LEFT: ${userId} ended video call in team ${teamId}`);
-    
-    // Leave the room
-    socket.leave(`team_video_${teamId}`);
-    
-    // Notify others
-    io.to(`team_video_${teamId}`).emit('videoCall:user-left', {
+    console.log(`\n👋 ${userId} left call in team ${teamId}`);
+
+    socket.leave(`call_${teamId}`);
+
+    io.to(`call_${teamId}`).emit('call:user-left', {
       userId
     });
   });
 
   // Cleanup on disconnect
   socket.on('disconnect', () => {
-    if (socket.videoCallTeamId) {
-      console.log(`\n🔌 Socket disconnected, leaving video call room: team_video_${socket.videoCallTeamId}`);
-      socket.leave(`team_video_${socket.videoCallTeamId}`);
-      
-      io.to(`team_video_${socket.videoCallTeamId}`).emit('videoCall:user-left', {
+    if (socket.callTeamId) {
+      io.to(`call_${socket.callTeamId}`).emit('call:user-left', {
         userId: socket.userId
       });
     }
   });
-
-
-  // ===== OLD HANDLERS REMOVED - See redesigned handlers above =====
 
 
   // ===== PERSONAL VIDEO CALL EVENTS =====
@@ -559,7 +422,7 @@ io.on('connection', (socket) => {
     
     // Notify team members if user was in a video call
     if (socket.teamId) {
-      socket.to(`team_${socket.teamId}`).emit('videoCall:user-left', {
+      socket.to(`call_${socket.teamId}`).emit('call:user-left', {
         userId: socket.userId
       });
     }
