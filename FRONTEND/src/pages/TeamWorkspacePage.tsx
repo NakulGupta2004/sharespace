@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
-import { VideoCallSimple } from '../components/ui/VideoCallSimple';
+import { VideoCall } from '../components/ui/VideoCall';
 import { PersonalVideoCall } from '../components/ui/PersonalVideoCall';
 import {
   Users,
@@ -2819,7 +2819,7 @@ export default function TeamWorkspacePage() {
       {/* Team Video Call Component */}
       <AnimatePresence>
         {showTeamVideoCall && selectedTeam && (
-          <VideoCallSimple
+          <VideoCall
             teamId={selectedTeam._id}
             teamName={selectedTeam.name}
             onClose={() => setShowTeamVideoCall(false)}

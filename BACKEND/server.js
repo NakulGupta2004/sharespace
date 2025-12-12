@@ -337,6 +337,38 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('call:audio-toggled', (data) => {
+    const { teamId, userId, enabled } = data;
+    console.log(`🔊 ${userId} audio toggled: ${enabled ? 'ON' : 'OFF'}`);
+
+    io.to(`call_${teamId}`).emit('call:audio-toggled', {
+      userId,
+      enabled
+    });
+  });
+
+  socket.on('call:video-toggled', (data) => {
+    const { teamId, userId, enabled } = data;
+    console.log(`📹 ${userId} video toggled: ${enabled ? 'ON' : 'OFF'}`);
+
+    io.to(`call_${teamId}`).emit('call:video-toggled', {
+      userId,
+      enabled
+    });
+  });
+
+  socket.on('call:chat', (data) => {
+    const { teamId, userId, userName, message } = data;
+    console.log(`💬 Chat from ${userName} in team ${teamId}: ${message}`);
+
+    io.to(`call_${teamId}`).emit('call:chat', {
+      userId,
+      userName,
+      message,
+      timestamp: Date.now()
+    });
+  });
+
   // Cleanup on disconnect
   socket.on('disconnect', () => {
     if (socket.callTeamId) {
