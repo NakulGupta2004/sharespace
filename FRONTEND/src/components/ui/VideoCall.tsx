@@ -216,7 +216,7 @@ export const VideoCall: React.FC<VideoCallProps> = ({ teamId, teamName, onClose 
 
       if (data.userId === user?.id) return;
 
-      // Add to remote users list
+      // First, add to remote users list
       setRemoteUsers(prev => {
         if (prev.some(u => u.userId === data.userId)) return prev;
         return [...prev, {
@@ -227,16 +227,28 @@ export const VideoCall: React.FC<VideoCallProps> = ({ teamId, teamName, onClose 
         }];
       });
 
-      // Create offer for this new user
+      // Create offer immediately (don't wait)
       if (localStreamRef.current) {
-        setTimeout(() => sendOffer(data.userId), 500);
+        console.log(`[${user?.id}] Immediately creating offer for ${data.userId}`);
+        sendOffer(data.userId).catch(err => console.error('Failed to send offer:', err));
       }
     });
 
     // Receive offer from another user
     socket.on('call:offer', async (data: { offer: RTCSessionDescriptionInit; from: string; fromName: string }) => {
       try {
-        console.log(`[${user?.id}] Received offer from ${data.fromName}`);
+        console.log(`[${user?.id}] Received offer from ${data.fromName} (${data.from})`);
+
+        // Add to remote users if not already there
+        setRemoteUsers(prev => {
+          if (prev.some(u => u.userId === data.from)) return prev;
+          return [...prev, {
+            userId: data.from,
+            userName: data.fromName,
+            videoEnabled: true,
+            audioEnabled: true,
+          }];
+        });
 
         let pc = peerConnections.current[data.from];
         if (!pc) {
